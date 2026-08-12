@@ -18,14 +18,18 @@ on conflict (id) do update
   set file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
+-- Las funciones van calificadas con `public.` a propósito: estas políticas se
+-- evalúan en el contexto del esquema `storage`, donde `public` no está en el
+-- search_path y un `mi_rol()` a secas fallaría.
+
 -- Cualquier usuario activo puede ver las capturas (la administradora las
 -- necesita para verificar, el dueño para auditar).
 create policy capturas_leer on storage.objects for select
-  using (bucket_id = 'capturas' and mi_rol() is not null);
+  using (bucket_id = 'capturas' and public.mi_rol() is not null);
 
 create policy capturas_subir on storage.objects for insert
-  with check (bucket_id = 'capturas' and puede_escribir());
+  with check (bucket_id = 'capturas' and public.puede_escribir());
 
 -- Borrar un comprobante ya cargado es cosa de administración.
 create policy capturas_borrar on storage.objects for delete
-  using (bucket_id = 'capturas' and es_admin());
+  using (bucket_id = 'capturas' and public.es_admin());
