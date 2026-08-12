@@ -88,9 +88,9 @@ no le alcanza para ver los datos del negocio.
 > **Antes de ejecutar `0003`**, reemplazar los repartidores de ejemplo por los
 > reales, o cargarlos después desde Configuración.
 >
-> ⚠ Ese archivo carga `pago_repartidor_usd` **igual** a la tarifa del cliente
-> (margen cero), porque el cuadro en papel solo tiene lo que se le cobra al
-> cliente. Ver [Lo que falta definir](#lo-que-falta-definir).
+> Ese archivo carga `pago_repartidor_usd` igual a la tarifa del cliente porque
+> al repartidor se le paga el delivery completo. Es el acuerdo real, no un valor
+> provisional.
 
 ### 2. Configurar la app
 
@@ -183,6 +183,12 @@ Tres decisiones que conviene conocer antes de tocar el código:
   dónde cae la plata, la columna «BANCO» del papel — y es obligatorio saberlo
   para poder ir a confirmar el pago. `bancos` es de dónde salió el pago del
   cliente, y es opcional.
+- **Cada zona guarda dos tarifas aunque hoy sean iguales.** Al repartidor se le
+  paga el delivery completo, así que el margen del local es cero. Las dos
+  columnas se mantienen para que cambiar el acuerdo sea cuestión de editar
+  números, no de tocar el modelo. Mientras no haya diferencia, la app **oculta
+  sola** las columnas de margen en la liquidación y en el cierre, y las vuelve a
+  mostrar en cuanto alguna zona deje diferencia.
 
 ---
 
@@ -203,16 +209,6 @@ Orden sugerido para no cambiarlo todo de golpe:
 
 ## Lo que falta definir
 
-- **Cuánto se le paga al repartidor por cada zona.** Es lo único que bloquea la
-  liquidación. El cuadro en papel solo tiene lo que se le cobra al cliente, así
-  que por ahora la app carga las dos columnas iguales: margen cero, el local le
-  pasa al repartidor el delivery completo. Se eligió ese valor porque nunca le
-  paga de menos a nadie. El final de `0003_datos_iniciales.sql` trae cuatro
-  consultas listas para los esquemas más comunes ($1 menos por zona, un
-  porcentaje, un monto fijo, o una tarifa por banda de precio). También se puede
-  ajustar zona por zona desde Configuración.
-  Ojo: la columna CARRERA de la hoja **no** sirve para esto — ya se confirmó
-  que es lo que paga el cliente, no lo que cobra el repartidor.
 - **Las abreviaturas de las cuentas.** Se cargaron `BP` = Banco Plaza y
   `BB` = Bicentenario a partir de la hoja; confirmar que son esas.
 - La lista de **repartidores** (nombre y teléfono).

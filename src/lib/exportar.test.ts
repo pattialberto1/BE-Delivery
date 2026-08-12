@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { consolidarLiquidacion, liquidacionDesdeOrdenes } from './exportar'
+import { consolidarLiquidacion, hayMargenDeDelivery, liquidacionDesdeOrdenes } from './exportar'
 import type { LiquidacionRepartidor, OrdenDetalle } from './tipos'
 
 /**
@@ -89,6 +89,37 @@ describe('liquidacionDesdeOrdenes', () => {
 
   it('devuelve vacío si no hay órdenes', () => {
     expect(liquidacionDesdeOrdenes([])).toEqual([])
+  })
+})
+
+describe('hayMargenDeDelivery', () => {
+  function fila(margen: number): LiquidacionRepartidor {
+    return {
+      fecha_operativa: '2026-08-12',
+      repartidor_id: 'rep-1',
+      repartidor: 'Luis',
+      carreras: 3,
+      total_pagar_usd: 6 - margen,
+      total_cobrado_usd: 6,
+      margen_usd: margen,
+    }
+  }
+
+  it('no ve margen cuando al repartidor se le paga el delivery completo', () => {
+    // Es el esquema actual del local: cobra $4, le paga $4.
+    expect(hayMargenDeDelivery([fila(0), fila(0)])).toBe(false)
+  })
+
+  it('ve margen en cuanto alguna zona deja diferencia', () => {
+    expect(hayMargenDeDelivery([fila(0), fila(1.5)])).toBe(true)
+  })
+
+  it('ignora los centavos sueltos del redondeo', () => {
+    expect(hayMargenDeDelivery([fila(0.004)])).toBe(false)
+  })
+
+  it('no ve margen si no hay filas', () => {
+    expect(hayMargenDeDelivery([])).toBe(false)
   })
 })
 

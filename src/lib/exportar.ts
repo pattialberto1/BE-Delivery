@@ -89,6 +89,18 @@ export async function exportarExcel(
 }
 
 /**
+ * Si el local se queda con alguna parte del delivery.
+ *
+ * Hoy al repartidor se le paga el delivery completo, así que el margen es cero
+ * en todas las zonas y mostrar esas columnas sería llenar el reporte de ceros.
+ * Se calcula en vez de darlo por sentado para que el día que se decida dejar un
+ * margen, las columnas reaparezcan solas sin tocar código.
+ */
+export function hayMargenDeDelivery(filas: LiquidacionRepartidor[]): boolean {
+  return filas.some((fila) => Math.abs(Number(fila.margen_usd)) >= 0.01)
+}
+
+/**
  * Agrupa la liquidación por repartidor sumando todos los días del rango.
  *
  * La vista SQL devuelve una fila por repartidor y por día; para pagarle a

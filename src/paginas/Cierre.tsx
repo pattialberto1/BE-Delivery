@@ -78,6 +78,8 @@ export function Cierre() {
     } satisfies TotalesCierre
   }, [ordenes, porMetodo])
 
+  const conMargen = Math.abs(totales.margen_delivery_usd) >= 0.01
+
   const pendientes = ordenes.filter((o) => o.estado === 'pendiente')
   const sinRepartidor = ordenes.filter((o) => !o.repartidor_id)
   const descuadradas = ordenes.filter((o) => Math.abs(o.diferencia_usd) > TOLERANCIA_DESCUADRE_USD)
@@ -153,9 +155,16 @@ export function Cierre() {
           <Dato etiqueta="Órdenes" valor={totales.ordenes} />
           <Dato etiqueta="Ventas (sin delivery)" valor={formatearUSD(totales.ventas_usd)} />
           <Dato etiqueta="Total facturado" valor={formatearUSD(totales.total_usd)} />
-          <Dato etiqueta="Delivery cobrado" valor={formatearUSD(totales.delivery_cobrado_usd)} />
+          <Dato
+            etiqueta="Delivery cobrado"
+            valor={formatearUSD(totales.delivery_cobrado_usd)}
+            // Sin margen, cobrado y a pagar son la misma cifra: se dice una vez.
+            detalle={conMargen ? undefined : 'Va completo a los repartidores'}
+          />
           <Dato etiqueta="A pagar a repartidores" valor={formatearUSD(totales.delivery_pagado_usd)} tono="malo" />
-          <Dato etiqueta="Margen del delivery" valor={formatearUSD(totales.margen_delivery_usd)} tono="bueno" />
+          {conMargen && (
+            <Dato etiqueta="Margen del delivery" valor={formatearUSD(totales.margen_delivery_usd)} tono="bueno" />
+          )}
         </div>
       </Tarjeta>
 

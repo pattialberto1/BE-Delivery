@@ -4,16 +4,16 @@
 -- Bancos: la lista real del sistema venezolano, sirve tal cual.
 -- Zonas:  el cuadro real de deliverys del local (104 zonas, de $2 a $7).
 --
--- ⚠ PENDIENTE — LO QUE SE LE PAGA AL REPARTIDOR
+-- PAGO AL REPARTIDOR
 --
--- El cuadro en papel solo tiene lo que se le COBRA AL CLIENTE. Mientras no se
--- defina la tarifa propia del repartidor, este archivo carga
--- `pago_repartidor_usd` igual a `tarifa_cliente_usd`, o sea margen cero: el
--- local le pasa al repartidor todo el delivery.
+-- Al repartidor se le paga el delivery completo: exactamente lo que pagó el
+-- cliente por esa zona. Por eso `pago_repartidor_usd` = `tarifa_cliente_usd` y
+-- el margen del local es cero. No es un valor provisional, es el acuerdo real.
 --
--- Se eligió ese valor a propósito porque nunca le paga de menos a nadie. En
--- cuanto se defina el esquema real, se ajusta desde Configuración -> Zonas, o
--- con una de las consultas del final de este archivo.
+-- La estructura de dos columnas se mantiene igual, para que el día que se
+-- decida dejar un margen baste con cambiar los números (desde Configuración ->
+-- Zonas, o con una de las consultas del final de este archivo) sin tocar nada
+-- más. Mientras sean iguales, la app oculta sola las columnas de margen.
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -69,9 +69,9 @@ on conflict (abreviatura) do nothing;
 -- `orden` agrupa por precio igual que el cuadro en papel (20 = $2, 30 = $3…),
 -- y dentro de cada grupo la app las muestra alfabéticamente.
 --
--- El `precio, precio` del SELECT es el marcador de posición: la primera copia
--- es lo que se le cobra al cliente (dato real del cuadro) y la segunda es lo
--- que se le paga al repartidor (todavía sin definir). Ver la nota de arriba.
+-- El `precio, precio` del SELECT no es un descuido: la primera copia es lo que
+-- se le cobra al cliente y la segunda lo que se le paga al repartidor, y hoy
+-- son el mismo monto. Ver la nota de arriba.
 -- ---------------------------------------------------------------------------
 
 insert into zonas (nombre, tarifa_cliente_usd, pago_repartidor_usd, orden)
@@ -205,7 +205,7 @@ insert into repartidores (nombre, telefono) values
 on conflict do nothing;
 
 -- ============================================================================
--- Cuando se defina cuánto se le paga al repartidor, correr UNA de estas.
+-- Si algún día se decide dejarle margen al local, correr UNA de estas.
 -- (Están comentadas a propósito: hay que elegir y descomentar.)
 -- ============================================================================
 

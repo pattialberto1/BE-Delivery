@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useSesion } from '../contexto/Sesion'
 import { useOrdenesRango } from '../hooks/useOrdenes'
 import { formatearFecha, formatearUSD } from '../lib/reglas'
-import { consolidarLiquidacion, exportarExcel, liquidacionDesdeOrdenes } from '../lib/exportar'
+import { consolidarLiquidacion, exportarExcel, hayMargenDeDelivery, liquidacionDesdeOrdenes } from '../lib/exportar'
 import { Alerta, Boton, Cargando, ContenedorTabla, Dato, Entrada, Tarjeta, Vacio } from '../componentes/UI'
 
 /**
@@ -25,6 +25,10 @@ export function Liquidacion() {
   const totalPagar = consolidado.reduce((s, f) => s + f.total_pagar_usd, 0)
   const totalCobrado = consolidado.reduce((s, f) => s + f.total_cobrado_usd, 0)
   const totalCarreras = consolidado.reduce((s, f) => s + f.carreras, 0)
+
+  // Con el esquema actual el repartidor cobra el delivery completo, así que
+  // «cobrado» y «a pagar» son la misma cifra. Se muestran solo si difieren.
+  const conMargen = useMemo(() => hayMargenDeDelivery(consolidado), [consolidado])
 
   const unSoloDia = desde === hasta
 
@@ -64,15 +68,17 @@ export function Liquidacion() {
           <Vacio>No hay carreras asignadas en este rango.</Vacio>
         ) : (
           <>
-            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <div className={`mb-4 grid gap-3 ${conMargen ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
               <Dato etiqueta="Carreras" valor={totalCarreras} />
               <Dato etiqueta="Total a pagar" valor={formatearUSD(totalPagar)} tono="malo" />
-              <Dato
-                etiqueta="Margen del delivery"
-                valor={formatearUSD(totalCobrado - totalPagar)}
-                tono="bueno"
-                detalle={`Cobrado ${formatearUSD(totalCobrado)}`}
-              />
+              {conMargen && (
+                <Dato
+                  etiqueta="Margen del delivery"
+                  valor={formatearUSD(totalCobrado - totalPagar)}
+                  tono="bueno"
+                  detalle={`Cobrado ${formatearUSD(totalCobrado)}`}
+                />
+              )}
             </div>
 
             <ContenedorTabla>
@@ -82,8 +88,12 @@ export function Liquidacion() {
                     <th className="py-2 pr-3">Repartidor</th>
                     <th className="py-2 pr-3 text-right">Carreras</th>
                     <th className="py-2 pr-3 text-right">A pagar</th>
-                    <th className="py-2 pr-3 text-right">Cobrado al cliente</th>
-                    <th className="py-2 text-right">Margen</th>
+                    {conMargen && (
+                      <>
+                        <th className="py-2 pr-3 text-right">Cobrado al cliente</th>
+                        <th className="py-2 text-right">Margen</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -94,12 +104,16 @@ export function Liquidacion() {
                       <td className="py-2.5 pr-3 text-right text-lg font-bold tabular-nums text-slate-900">
                         {formatearUSD(fila.total_pagar_usd)}
                       </td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums text-slate-500">
-                        {formatearUSD(fila.total_cobrado_usd)}
-                      </td>
-                      <td className="py-2.5 text-right tabular-nums text-slate-500">
-                        {formatearUSD(fila.margen_usd)}
-                      </td>
+                      {conMargen && (
+                        <>
+                          <td className="py-2.5 pr-3 text-right tabular-nums text-slate-500">
+                            {formatearUSD(fila.total_cobrado_usd)}
+                          </td>
+                          <td className="py-2.5 text-right tabular-nums text-slate-500">
+                            {formatearUSD(fila.margen_usd)}
+                          </td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -108,8 +122,12 @@ export function Liquidacion() {
                     <td className="py-2.5 pr-3">Total</td>
                     <td className="py-2.5 pr-3 text-right tabular-nums">{totalCarreras}</td>
                     <td className="py-2.5 pr-3 text-right text-lg tabular-nums">{formatearUSD(totalPagar)}</td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums">{formatearUSD(totalCobrado)}</td>
-                    <td className="py-2.5 text-right tabular-nums">{formatearUSD(totalCobrado - totalPagar)}</td>
+                    {conMargen && (
+                      <>
+                        <td className="py-2.5 pr-3 text-right tabular-nums">{formatearUSD(totalCobrado)}</td>
+                        <td className="py-2.5 text-right tabular-nums">{formatearUSD(totalCobrado - totalPagar)}</td>
+                      </>
+                    )}
                   </tr>
                 </tfoot>
               </table>
