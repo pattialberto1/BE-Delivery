@@ -39,6 +39,25 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
   debe, por día o por rango de fechas.
 - **Exporte a Excel** con dos hojas (detalle y liquidación) y vista imprimible.
 
+## De la hoja de papel a la app
+
+La hoja que hoy se llena a mano tiene ocho columnas. Así queda cada una:
+
+| Columna del papel | En la app |
+|---|---|
+| **N.** | Ya no hace falta: la app numera sola |
+| **N. FACTURA** | Se teclea. La app avisa si está repetida o si falta alguna en el correlativo |
+| **TOTAL** | Sale solo: pedido + delivery |
+| **DIVISA** | Un pago con forma «Efectivo $» o «Zelle» |
+| **P. MOVIL** | Un pago con forma «Pago móvil», en Bs |
+| **REF.** | Se teclea, completa o los últimos 4 dígitos. La app cruza las dos formas |
+| **CARRERA** | Sale solo al elegir la zona |
+| **BANCO** | «Entró en»: cuál de nuestras cuentas recibió el pago (BP, BB…) |
+
+Lo que la hoja **no** tiene y la app agrega: la captura del pago pegada a la
+orden, el repartidor asignado, la dirección, y el cuadre automático entre lo
+pagado y el total.
+
 ## Roles
 
 | Rol | Qué puede hacer |
@@ -148,15 +167,18 @@ Tres decisiones que conviene conocer antes de tocar el código:
 - **Las tarifas se copian dentro de cada orden**, no solo se referencian a la
   zona. Si mañana suben los precios, las órdenes viejas conservan lo que
   realmente se cobró y se pagó ese día, y los reportes históricos no se mueven.
-- **Las referencias cortas no se pueden tratar como únicas.** En la hoja de
-  papel se anotan con 4 dígitos, porque es lo que muestran las apps de los
-  bancos. Con 10.000 valores posibles y el volumen de una semana, que dos pagos
-  distintos compartan esos 4 dígitos es esperable, no raro. Por eso la app
-  **avisa** mostrando la factura y el monto en conflicto, pero deja guardar:
-  trancar a la cajera con el cliente en línea sería peor que el problema que se
-  quiere evitar. La base solo exige unicidad cuando la referencia tiene 8
-  dígitos o más, donde una repetición sí delata la misma captura mandada dos
-  veces. Si además del número coincide el monto, el aviso sube de tono.
+- **Un recorte de referencia no se puede tratar como único.** En la hoja de
+  papel se anotan solo los **últimos 4 dígitos** de la referencia completa,
+  porque copiarla entera a mano es lento. La app acepta las dos formas y las
+  cruza por sufijo, así que se puede seguir anotando el recorte de siempre.
+  Pero con 4 dígitos hay 10.000 valores posibles: con el volumen de una semana,
+  que dos pagos distintos terminen en los mismos números es esperable. Por eso
+  la app **avisa** mostrando la factura y el monto en conflicto, pero deja
+  guardar — trancar a la cajera con el cliente en línea sería peor que el
+  problema que se quiere evitar. La base solo exige unicidad con la referencia
+  completa (8 dígitos o más), donde una repetición sí delata la misma captura
+  mandada dos veces. **Conviene teclear la referencia completa siempre que se
+  pueda: es lo que convierte el aviso en certeza.**
 - **`bancos` y `cuentas` son cosas distintas.** `cuentas` son las nuestras —
   dónde cae la plata, la columna «BANCO» del papel — y es obligatorio saberlo
   para poder ir a confirmar el pago. `bancos` es de dónde salió el pago del

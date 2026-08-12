@@ -4,6 +4,7 @@ import {
   admiteBancoEmisor,
   formatearMonto,
   monedaDeMetodo,
+  referenciaEsConfiable,
   requiereCaptura,
   requiereCuenta,
   requiereReferencia,
@@ -116,12 +117,23 @@ export function FilaPago({ pago, indice, cuentas, bancos, errores, choque, onCam
         )}
 
         {conReferencia && (
-          <Campo etiqueta="Referencia" requerido error={err('referencia')} ayuda="Como aparece en la captura">
+          <Campo
+            etiqueta="Referencia"
+            requerido
+            error={err('referencia')}
+            // Se acepta el recorte de siempre, pero la completa hace que el
+            // aviso de captura repetida pase de sospecha a certeza.
+            ayuda={
+              referenciaEsConfiable(pago.referencia)
+                ? 'Completa: los repetidos se detectan solos'
+                : 'Completa si se puede; si no, los últimos 4 dígitos'
+            }
+          >
             <Entrada
               value={pago.referencia}
               onChange={(e) => onCambiar({ referencia: e.target.value })}
               inputMode="numeric"
-              placeholder="Ej: 9319"
+              placeholder="Completa o últimos 4"
             />
           </Campo>
         )}
@@ -203,7 +215,7 @@ export function FilaPago({ pago, indice, cuentas, bancos, errores, choque, onCam
           {formatearMonto(choque.monto, choque.moneda)}
           {choque.fuerza === 'seguro'
             ? '. Revisa si el cliente mandó la misma captura dos veces.'
-            : ', con un monto distinto al de aquí. Con referencias de 4 dígitos esto puede ser casualidad — confirma antes de seguir.'}
+            : ', con un monto distinto al de aquí. Anotando solo los últimos 4 dígitos esto puede ser casualidad — confirma antes de seguir, o teclea la referencia completa para salir de dudas.'}
         </p>
       )}
 

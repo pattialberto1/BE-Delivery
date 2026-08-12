@@ -91,7 +91,14 @@ describe('referenciasCoinciden', () => {
     expect(referenciasCoinciden('0012-3456', 'Ref 123456')).toBe(true)
   })
 
-  it('reconoce la referencia recortada que muestran algunas apps', () => {
+  it('reconoce el recorte del papel contra la referencia completa', () => {
+    // En la hoja se anotan los últimos 4 dígitos; en la app se puede teclear
+    // la referencia entera. Las dos formas tienen que cruzarse.
+    expect(referenciasCoinciden('00123459319', '9319')).toBe(true)
+  })
+
+  it('cruza igual sin importar cuál de las dos venga completa', () => {
+    expect(referenciasCoinciden('9319', '00123459319')).toBe(true)
     expect(referenciasCoinciden('987654321', '54321')).toBe(true)
   })
 
@@ -262,13 +269,12 @@ describe('validarOrden', () => {
 })
 
 describe('confianza de las referencias', () => {
-  it('trata como poco confiables las referencias de 4 dígitos', () => {
-    // Es lo que muestran las apps de los bancos y lo que se anota en el papel.
+  it('trata como poco confiable el recorte de 4 dígitos del papel', () => {
     expect(referenciaEsConfiable('9319')).toBe(false)
     expect(referenciaEsConfiable('123456')).toBe(false)
   })
 
-  it('confía en las referencias de 8 dígitos o más', () => {
+  it('confía en la referencia completa, de 8 dígitos o más', () => {
     expect(referenciaEsConfiable('12345678')).toBe(true)
     expect(referenciaEsConfiable('0012-3456-78')).toBe(true)
   })

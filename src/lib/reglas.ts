@@ -70,11 +70,14 @@ export function normalizarReferencia(referencia: string): string {
 /**
  * Compara dos referencias.
  *
- * Los bancos venezolanos muestran la referencia recortada a los últimos 4-8
- * dígitos según la app, así que si una es sufijo de la otra y comparten al
- * menos 4 dígitos, se consideran la misma transacción. Es deliberadamente
- * amplio: preferimos avisar de más y que la cajera descarte, a dejar pasar una
- * captura reenviada dos veces.
+ * En la hoja de papel se anotan solo los **últimos 4 dígitos** de la referencia
+ * completa, porque copiarla entera a mano es lento. La app acepta las dos
+ * formas, así que la comparación es por sufijo: si una termina en la otra y
+ * comparten al menos 4 dígitos, son la misma transacción.
+ *
+ * Es deliberadamente amplio y simétrico — da igual cuál de las dos esté
+ * completa. Preferimos avisar de más y que la cajera descarte, a dejar pasar
+ * una captura reenviada dos veces.
  */
 export function referenciasCoinciden(a: string, b: string): boolean {
   const na = normalizarReferencia(a)
@@ -90,10 +93,14 @@ export function referenciasCoinciden(a: string, b: string): boolean {
 /**
  * A partir de cuántos dígitos una referencia repetida es sospechosa de verdad.
  *
- * Los bancos venezolanos muestran la referencia recortada a 4 dígitos, y con
- * 10.000 valores posibles dos pagos distintos comparten los mismos 4 dígitos
- * con toda naturalidad en el volumen de una semana. De 8 dígitos en adelante,
- * una repetición sí es señal de la misma captura mandada dos veces.
+ * Si se teclea la referencia completa, una repetición es prueba de que la
+ * captura se mandó dos veces. Pero si se anotan solo los últimos 4 dígitos —
+ * como se viene haciendo en el papel — hay apenas 10.000 valores posibles, y
+ * con el volumen de una semana que dos pagos distintos terminen en los mismos
+ * 4 números es esperable, no raro.
+ *
+ * Por eso conviene teclear la referencia completa siempre que se pueda: es lo
+ * que convierte el aviso en certeza.
  */
 export const DIGITOS_REFERENCIA_CONFIABLE = 8
 

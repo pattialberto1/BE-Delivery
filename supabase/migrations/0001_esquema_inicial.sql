@@ -245,17 +245,19 @@ create index pagos_referencia_idx on pagos (referencia) where referencia is not 
 -- ---------------------------------------------------------------------------
 -- Unicidad de las referencias
 --
--- En la hoja de papel las referencias se anotan con solo 4 dígitos, porque es
--- lo que muestran las apps de los bancos. Con 4 dígitos hay 10.000 valores
--- posibles: con el volumen de una semana, que dos pagos distintos compartan los
--- mismos 4 dígitos no es raro, es esperable.
+-- En la hoja de papel se anotan solo los ÚLTIMOS 4 DÍGITOS de la referencia
+-- completa, porque copiarla entera a mano es lento. La app acepta las dos
+-- formas: la completa o el recorte de siempre.
 --
--- Por eso NO se puede exigir unicidad global de la referencia: rechazaría pagos
--- legítimos y dejaría a la cajera trancada con el cliente en línea.
+-- Con 4 dígitos hay apenas 10.000 valores posibles, así que con el volumen de
+-- una semana que dos pagos distintos terminen en los mismos 4 números es
+-- esperable, no raro. Por eso NO se puede exigir unicidad sobre cualquier
+-- referencia: rechazaría pagos legítimos y dejaría a la cajera trancada con el
+-- cliente en línea.
 --
--- La unicidad se exige solo cuando la referencia es larga (8 dígitos o más),
--- donde una repetición sí es señal de la misma captura mandada dos veces. Para
--- las cortas, la app avisa en pantalla mostrando la factura y el monto en
+-- La unicidad se exige solo cuando la referencia viene completa (8 dígitos o
+-- más), donde una repetición sí delata la misma captura mandada dos veces. Para
+-- los recortes, la app avisa en pantalla mostrando la factura y el monto en
 -- conflicto, y la cajera decide — que es justo lo que hoy no puede hacer.
 -- ---------------------------------------------------------------------------
 
