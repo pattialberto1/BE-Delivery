@@ -1,0 +1,204 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSesion } from '../contexto/Sesion'
+import { useOrdenes } from '../hooks/useOrdenes'
+import { mensajeDeError, supabase, urlDeCaptura } from '../lib/supabase'
+import { formatearMonto, formatearUSD, TOLERANCIA_DESCUADRE_USD } from '../lib/reglas'
+import { ETIQUETA_METODO, type Pago } from '../lib/tipos'
+import { Alerta, Boton, Cargando, Dato, Insignia, Tarjeta, Vacio } from '../componentes/UI'
+
+/**
+ * Verificación de la administradora.
+ *
+ * Esto reemplaza el cotejo contra el papel impreso: en vez de leer la comanda,
+ * buscar la fila en el Excel y comparar tres números, ve la captura del pago al
+ * lado de lo que se tecleó y aprueba con un botón.
+ */
+export function Verificacion() {
+  const { hoy, usuario } = useSesion()
+  const { ordenes, cargando, recargar } = useOrdenes(hoy)
+  const [pagosPorOrden, setPagosPorOrden] = useState<Record<string, Pago[]>>({})
+  const [urls, setUrls] = useState<Record<string, string>>({})
+  const [indice, setIndice] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [trabajando, setTrabajando] = useState(false)
+
+  const pendientes = useMemo(() => ordenes.filter((o) => o.estado === 'pendiente'), [ordenes])
+  const verificadas = ordenes.length - pendientes.length
+  const actual = pendientes[Math.min(indice, Math.max(pendientes.length - 1, 0))]
+
+  const cargarPagos = useCallback(async (ordenId: string) => {
+    const { data, error } = await supabase.from('pagos').select('*').eq('orden_id', ordenId).order('creado_en')
+    if (error) {
+      setError(mensajeDeError(error))
+      return
+    }
+    const pagos = (data ?? []) as Pago[]
+    setPagosPorOrden((previo) => ({ ...previo, [ordenId]: pagos }))
+
+    // El bucket es privado: cada captura necesita su URL firmada temporal.
+    const firmadas = await Promise.all(
+      pagos.map(async (p) => (p.imagen_path ? ([p.id, await urlDeCaptura(p.imagen_path)] as const) : null)),
+    )
+    setUrls((previo) => {
+      const siguiente = { ...previo }
+      for (const par of firmadas) {
+        if (par?.[1]) siguiente[par[0]] = par[1]
+      }
+      return siguiente
+    })
+  }, [])
+
+  useEffect(() => {
+    if (actual && !pagosPorOrden[actual.id]) void cargarPagos(actual.id)
+  }, [actual, pagosPorOrden, cargarPagos])
+
+  async function verificar() {
+    if (!actual || !usuario) return
+    setTrabajando(true)
+    setError(null)
+    const { error } = await supabase
+      .from('ordenes')
+      .update({ estado: 'verificada', verificada_por: usuario.id, verificada_en: new Date().toISOString() })
+      .eq('id', actual.id)
+
+    if (error) setError(mensajeDeError(error))
+    setTrabajando(false)
+    await recargar()
+  }
+
+  if (cargando) return <Cargando texto="Cargando órdenes por verificar…" />
+
+  if (pendientes.length === 0) {
+    return (
+      <Tarjeta titulo="Verificación">
+        <Alerta tono="exito" titulo="Todo verificado">
+          No queda ninguna orden pendiente de la jornada. Se verificaron {verificadas} de {ordenes.length}.
+        </Alerta>
+      </Tarjeta>
+    )
+  }
+
+  if (!actual) return <Vacio>No hay órdenes pendientes.</Vacio>
+
+  const pagos = pagosPorOrden[actual.id] ?? []
+  const cuadra = Math.abs(actual.diferencia_usd) <= TOLERANCIA_DESCUADRE_USD
+
+  return (
+    <div className="space-y-4">
+      {error && <Alerta tono="error">{error}</Alerta>}
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-semibold text-slate-700">
+          Verificadas {verificadas} de {ordenes.length} · quedan {pendientes.length}
+        </p>
+        <div className="flex gap-2">
+          <Boton
+            variante="secundario"
+            className="min-h-10 text-sm"
+            disabled={indice === 0}
+            onClick={() => setIndice((i) => Math.max(0, i - 1))}
+          >
+            ← Anterior
+          </Boton>
+          <Boton
+            variante="secundario"
+            className="min-h-10 text-sm"
+            disabled={indice >= pendientes.length - 1}
+            onClick={() => setIndice((i) => Math.min(pendientes.length - 1, i + 1))}
+          >
+            Saltar →
+          </Boton>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Izquierda: lo que se tecleó */}
+        <Tarjeta titulo={`Factura ${actual.numero_factura}`}>
+          <dl className="space-y-2 text-sm">
+            <Renglon termino="Cliente" valor={actual.cliente_nombre} />
+            <Renglon termino="Teléfono" valor={actual.cliente_telefono ?? '—'} />
+            <Renglon termino="Dirección" valor={actual.direccion} />
+            <Renglon termino="Zona" valor={`${actual.zona} · ${formatearUSD(actual.tarifa_cliente_usd)}`} />
+            <Renglon termino="Repartidor" valor={actual.repartidor ?? '⚠ Sin asignar'} />
+            <Renglon termino="Cargada por" valor={actual.cargada_por ?? '—'} />
+            {actual.notas && <Renglon termino="Notas" valor={actual.notas} />}
+          </dl>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <Dato etiqueta="Pedido" valor={formatearUSD(actual.monto_pedido_usd)} />
+            <Dato etiqueta="Total" valor={formatearUSD(actual.total_usd)} />
+            <Dato
+              etiqueta="Pagado"
+              valor={formatearUSD(actual.pagado_usd)}
+              tono={cuadra ? 'bueno' : 'malo'}
+              detalle={cuadra ? 'Cuadra' : `Diferencia ${formatearUSD(actual.diferencia_usd)}`}
+            />
+          </div>
+
+          {!cuadra && (
+            <Alerta tono="aviso" className="mt-3">
+              Lo pagado no coincide con el total. Revisa antes de aprobar.
+            </Alerta>
+          )}
+
+          {!actual.repartidor_id && (
+            <Alerta tono="aviso" className="mt-3">
+              Sin repartidor asignado. Esta carrera no va a aparecer en la liquidación de nadie.
+            </Alerta>
+          )}
+        </Tarjeta>
+
+        {/* Derecha: los comprobantes */}
+        <Tarjeta titulo={`Comprobantes (${pagos.length})`}>
+          <div className="space-y-4">
+            {pagos.map((pago) => (
+              <div key={pago.id} className="rounded-lg border border-slate-200 p-3">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <Insignia>{ETIQUETA_METODO[pago.metodo]}</Insignia>
+                  <span className="font-bold tabular-nums">{formatearMonto(Number(pago.monto), pago.moneda)}</span>
+                </div>
+                <dl className="space-y-1 text-sm">
+                  <Renglon termino="Referencia" valor={pago.referencia ?? '—'} />
+                  <Renglon termino="Emisor" valor={pago.emisor ?? '—'} />
+                </dl>
+                {pago.imagen_path ? (
+                  urls[pago.id] ? (
+                    <a href={urls[pago.id]} target="_blank" rel="noreferrer">
+                      <img
+                        src={urls[pago.id]}
+                        alt={`Captura del pago ${pago.referencia ?? ''}`}
+                        className="mt-2 max-h-96 w-full rounded-md border border-slate-300 object-contain"
+                      />
+                    </a>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-500">Cargando captura…</p>
+                  )
+                ) : (
+                  <p className="mt-2 text-sm font-semibold text-amber-700">Sin captura adjunta.</p>
+                )}
+              </div>
+            ))}
+            {pagos.length === 0 && <Vacio>Esta orden no tiene pagos cargados.</Vacio>}
+          </div>
+        </Tarjeta>
+      </div>
+
+      <div className="sticky bottom-0 flex gap-2 border-t border-slate-300 bg-white p-3">
+        <Boton ancho onClick={() => void verificar()} disabled={trabajando}>
+          {trabajando ? 'Guardando…' : '✓ Verificar y pasar a la siguiente'}
+        </Boton>
+      </div>
+    </div>
+  )
+}
+
+function Renglon({ termino, valor }: { termino: string; valor: string }) {
+  return (
+    <div className="flex gap-2">
+      <dt className="w-28 shrink-0 font-semibold text-slate-500">{termino}</dt>
+      <dd className="flex-1 break-words text-slate-900">{valor}</dd>
+    </div>
+  )
+}
+
+export default Verificacion

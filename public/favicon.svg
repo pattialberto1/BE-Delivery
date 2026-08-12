@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Broaster Express Delivery">
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b91c1c" />
+      <stop offset="1" stop-color="#991b1b" />
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="18" fill="url(#fondo)" />
+  <rect x="26" y="40" width="48" height="36" rx="5" fill="#ffffff" />
+  <rect x="20" y="27" width="60" height="13" rx="4" fill="#ffffff" />
+  <rect x="46" y="40" width="8" height="36" fill="#b91c1c" />
+</svg>

@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-marca-50: #fef2f2;
+  --color-marca-100: #fee2e2;
+  --color-marca-200: #fecaca;
+  --color-marca-500: #ef4444;
+  --color-marca-600: #dc2626;
+  --color-marca-700: #b91c1c;
+  --color-marca-800: #991b1b;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-slate-100);
+  color: var(--color-slate-900);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Evita el zoom accidental al tocar dos veces en la tablet. */
+  touch-action: manipulation;
+}
+
+/* En la tablet, un input con menos de 16px hace que Android/iOS haga zoom al enfocar. */
+input,
+select,
+textarea,
+button {
+  font-size: 16px;
+}
+
+@media print {
+  .no-imprimir {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+  }
+}
