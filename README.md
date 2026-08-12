@@ -51,7 +51,7 @@ La hoja que hoy se llena a mano tiene ocho columnas. Así queda cada una:
 | **DIVISA** | Un pago con forma «Efectivo $» o «Zelle» |
 | **P. MOVIL** | Un pago con forma «Pago móvil», en Bs |
 | **REF.** | Se teclea, completa o los últimos 4 dígitos. La app cruza las dos formas |
-| **CARRERA** | Sale solo al elegir la zona |
+| **CARRERA** | Lo que el cliente paga por el delivery. Sale solo al elegir la zona |
 | **BANCO** | «Entró en»: cuál de nuestras cuentas recibió el pago (BP, BB…) |
 
 Lo que la hoja **no** tiene y la app agrega: la captura del pago pegada a la
@@ -211,10 +211,8 @@ Orden sugerido para no cambiarlo todo de golpe:
   consultas listas para los esquemas más comunes ($1 menos por zona, un
   porcentaje, un monto fijo, o una tarifa por banda de precio). También se puede
   ajustar zona por zona desde Configuración.
-- **Qué son «Maxi Santiago» y la columna «CARRERA»** de la hoja: si ese nombre
-  es el del repartidor y la hoja es una por repartidor, entonces el monto de
-  CARRERA es lo que se le paga a él — y con eso queda resuelto el punto de
-  arriba. También falta saber qué significa la «P» en vez de un monto.
+  Ojo: la columna CARRERA de la hoja **no** sirve para esto — ya se confirmó
+  que es lo que paga el cliente, no lo que cobra el repartidor.
 - **Las abreviaturas de las cuentas.** Se cargaron `BP` = Banco Plaza y
   `BB` = Bicentenario a partir de la hoja; confirmar que son esas.
 - La lista de **repartidores** (nombre y teléfono).
@@ -222,11 +220,10 @@ Orden sugerido para no cambiarlo todo de golpe:
 - Si la **tasa** que se usa es la del BCV o una propia del local, y quién la
   carga cada día.
 
-Además, hay siete nombres del cuadro en papel que conviene confirmar porque no
-se leían con total claridad en la foto: **Loblán**, **Mercedores**, **Cutira**,
+Los nombres de zona que se leían con menos claridad en la foto del cuadro ya
+están confirmados y cargados tal cual: **Loblán**, **Mercedores**, **Cutira**,
 **La Silsa**, **Cochecito**, **Monte Cristo** y **Av. Roosvelt** (escrito así en
-el papel, no "Roosevelt"). Se cargaron tal como se leen; cualquier corrección se
-hace desde Configuración.
+el papel, no «Roosevelt»).
 
 ## Ideas para más adelante
 
