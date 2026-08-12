@@ -4,6 +4,7 @@ import { useOrdenes } from '../hooks/useOrdenes'
 import { mensajeDeError, supabase } from '../lib/supabase'
 import {
   detectarSaltosDeFactura,
+  formatearBS,
   formatearFecha,
   formatearUSD,
   TOLERANCIA_DESCUADRE_USD,
@@ -185,7 +186,7 @@ export function Cierre() {
                   <td className="py-2 pr-3 font-semibold">{ETIQUETA_METODO[metodo as MetodoPago] ?? metodo}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{fila.cantidad}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">
-                    {fila.monto_bs > 0 ? fila.monto_bs.toFixed(2) : '—'}
+                    {fila.monto_bs > 0 ? formatearBS(fila.monto_bs) : '—'}
                   </td>
                   <td className="py-2 text-right font-semibold tabular-nums">{formatearUSD(fila.monto_usd)}</td>
                 </tr>

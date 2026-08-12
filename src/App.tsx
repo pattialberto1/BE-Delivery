@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ProveedorSesion, useSesion } from './contexto/Sesion'
 import { configurado } from './lib/supabase'
 import { Layout } from './componentes/Layout'
@@ -89,9 +89,15 @@ export function App() {
 
   return (
     <ProveedorSesion>
-      <BrowserRouter>
+      {/*
+        Rutas con `#`. Nadie escribe ni comparte estas direcciones, así que las
+        URLs bonitas no aportan nada, y a cambio la app funciona igual en
+        cualquier hosting estático sin regla de reescritura: sin esto, refrescar
+        la pantalla de Liquidación daría 404 en producción.
+      */}
+      <HashRouter>
         <Rutas />
-      </BrowserRouter>
+      </HashRouter>
     </ProveedorSesion>
   )
 }
