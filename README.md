@@ -66,9 +66,11 @@ pagado y el total.
 | **Administradora** | Todo: verificar, cerrar la jornada, configurar zonas, tarifas y usuarios |
 | **Dueño** | Solo lectura de reportes y liquidaciones |
 
-Quien se registra entra **desactivado**. Un administrador tiene que activarlo
-desde Configuración → Usuarios. Así, que alguien consiga la dirección de la app
-no le alcanza para ver los datos del negocio.
+El **primer** usuario que se registra queda como administrador activo — si no,
+no habría nadie que pudiera dar el primer acceso. Todos los demás entran
+**desactivados** y un administrador los habilita desde Configuración → Usuarios.
+Así, que alguien consiga la dirección de la app no le alcanza para ver los datos
+del negocio.
 
 ---
 
@@ -84,6 +86,8 @@ no le alcanza para ver los datos del negocio.
    - `0002_storage_capturas.sql` — el depósito de las capturas de pago
    - `0003_datos_iniciales.sql` — bancos venezolanos y **el cuadro real de
      deliverys** (104 zonas, de $2 a $7)
+   - `0004_primer_usuario_admin.sql` — hace que el primer usuario que se
+     registre quede como administrador
 
 > **Antes de ejecutar `0003`**, reemplazar los repartidores de ejemplo por los
 > reales, o cargarlos después desde Configuración.
@@ -119,11 +123,22 @@ npm run dev
 
 ### 4. Crear el primer administrador
 
-1. Entrar a la app y usar **"¿Usuario nuevo? Crear cuenta"**.
-2. En Supabase, ir a **Table Editor → usuarios** y poner esa fila en
-   `rol = admin` y `activo = true`.
+Entrar a la app y usar **"¿Usuario nuevo? Crear cuenta"**. Nada más: el primer
+usuario que se registra queda como administrador activo automáticamente, porque
+no hay todavía nadie que pueda darle acceso.
 
-Desde ahí, ese usuario puede activar a todos los demás desde la app.
+A partir del segundo, cada uno entra desactivado y es el administrador quien le
+da el rol y el acceso desde **Configuración → Usuarios**.
+
+> **Si un usuario se registró pero no aparece en Configuración**, casi siempre es
+> porque se borró su fila de la tabla `usuarios`. El usuario de autenticación
+> sigue vivo, y como esa fila solo se crea al registrarse, volver a registrarse
+> con el mismo correo ya no la recrea. Se arregla ejecutando
+> `supabase/utilidades/reparar_usuario.sql` en el SQL Editor.
+>
+> Para borrar un usuario de verdad, hacerlo desde **Authentication → Users**, no
+> desde la tabla `usuarios`: así se borra todo junto y al registrarse de nuevo
+> se recrea solo.
 
 ### 5. Publicar (Vercel)
 
