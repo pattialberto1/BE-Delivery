@@ -30,7 +30,18 @@ export function requiereReferencia(metodo: MetodoPago): boolean {
   return !METODOS_EFECTIVO.includes(metodo)
 }
 
-export function requiereBanco(metodo: MetodoPago): boolean {
+/**
+ * Si hace falta saber a cuál de nuestras cuentas entró la plata.
+ *
+ * Sin ese dato no hay en qué banco entrar a confirmar el pago, que es
+ * justamente el primer paso del proceso hoy.
+ */
+export function requiereCuenta(metodo: MetodoPago): boolean {
+  return METODOS_CON_BANCO.includes(metodo)
+}
+
+/** El banco del que salió el pago. Es opcional: ayuda, pero no se verifica con él. */
+export function admiteBancoEmisor(metodo: MetodoPago): boolean {
   return METODOS_CON_BANCO.includes(metodo)
 }
 
@@ -74,6 +85,41 @@ export function referenciasCoinciden(a: string, b: string): boolean {
   const corta = na.length < nb.length ? na : nb
   const larga = na.length < nb.length ? nb : na
   return corta.length >= 4 && larga.endsWith(corta)
+}
+
+/**
+ * A partir de cuántos dígitos una referencia repetida es sospechosa de verdad.
+ *
+ * Los bancos venezolanos muestran la referencia recortada a 4 dígitos, y con
+ * 10.000 valores posibles dos pagos distintos comparten los mismos 4 dígitos
+ * con toda naturalidad en el volumen de una semana. De 8 dígitos en adelante,
+ * una repetición sí es señal de la misma captura mandada dos veces.
+ */
+export const DIGITOS_REFERENCIA_CONFIABLE = 8
+
+export function referenciaEsConfiable(referencia: string): boolean {
+  return normalizarReferencia(referencia).length >= DIGITOS_REFERENCIA_CONFIABLE
+}
+
+/**
+ * Qué tan seguro es que dos pagos sean en realidad el mismo.
+ *
+ * - `seguro`: misma referencia y mismo monto, o referencia larga repetida.
+ *   Casi con certeza es la captura reenviada.
+ * - `posible`: coinciden los 4 dígitos pero el monto es distinto. Con
+ *   referencias cortas esto pasa solo, así que se avisa sin trancar la carga.
+ */
+export type FuerzaDuplicado = 'seguro' | 'posible'
+
+export function fuerzaDeDuplicado(
+  referencia: string,
+  monto: number,
+  montoExistente: number,
+): FuerzaDuplicado {
+  if (referenciaEsConfiable(referencia)) return 'seguro'
+  // Los montos vienen de la misma moneda, así que se comparan con la tolerancia
+  // de un centavo para no tropezar con el redondeo.
+  return Math.abs(monto - montoExistente) < 0.01 ? 'seguro' : 'posible'
 }
 
 export interface Problema {
@@ -288,10 +334,10 @@ export function validarOrden(datos: DatosOrdenAValidar): Problema[] {
       })
     }
 
-    if (requiereBanco(pago.metodo) && !pago.banco_id) {
+    if (requiereCuenta(pago.metodo) && !pago.cuenta_id) {
       problemas.push({
-        campo: `pago.${pago.clave}.banco_id`,
-        mensaje: `${etiqueta}: falta el banco emisor.`,
+        campo: `pago.${pago.clave}.cuenta_id`,
+        mensaje: `${etiqueta}: falta a cuál de nuestras cuentas entró.`,
         nivel: 'error',
       })
     }
@@ -308,16 +354,22 @@ export function validarOrden(datos: DatosOrdenAValidar): Problema[] {
   // Dos pagos con la misma referencia dentro de la misma orden.
   datos.pagos.forEach((pago, i) => {
     if (!pago.referencia.trim()) return
-    const repetido = datos.pagos.some(
+    const anterior = datos.pagos.find(
       (otro, j) => j < i && otro.referencia.trim() && referenciasCoinciden(otro.referencia, pago.referencia),
     )
-    if (repetido) {
-      problemas.push({
-        campo: `pago.${pago.clave}.referencia`,
-        mensaje: `Pago ${i + 1}: esa referencia está repetida dentro de esta misma orden.`,
-        nivel: 'error',
-      })
-    }
+    if (!anterior) return
+
+    // Con referencias de 4 dígitos, que dos coincidan por casualidad es
+    // posible; si además el monto es el mismo, ya no lo es.
+    const fuerza = fuerzaDeDuplicado(pago.referencia, aNumero(pago.monto), aNumero(anterior.monto))
+    problemas.push({
+      campo: `pago.${pago.clave}.referencia`,
+      mensaje:
+        fuerza === 'seguro'
+          ? `Pago ${i + 1}: esa referencia y ese monto ya están en esta misma orden.`
+          : `Pago ${i + 1}: coincide la referencia con otro pago de esta orden, pero el monto es distinto. Revisa que no sea un error de tipeo.`,
+      nivel: fuerza === 'seguro' ? 'error' : 'aviso',
+    })
   })
 
   const resumen = calcularResumen(datos)

@@ -6,6 +6,7 @@ import {
   aNumero,
   calcularResumen,
   formatearUSD,
+  fuerzaDeDuplicado,
   monedaDeMetodo,
   normalizarReferencia,
   referenciasCoinciden,
@@ -13,9 +14,9 @@ import {
   validarOrden,
   type DatosOrdenAValidar,
 } from '../lib/reglas'
-import type { BorradorPago } from '../lib/tipos'
+import type { BorradorPago, Moneda } from '../lib/tipos'
 import { Alerta, Boton, Campo, Dato, Entrada, Seleccion, Tarjeta, AreaTexto } from '../componentes/UI'
-import { FilaPago } from '../componentes/FilaPago'
+import { FilaPago, type Choque } from '../componentes/FilaPago'
 import { SelectorZona } from '../componentes/SelectorZona'
 
 const CLAVE_BORRADOR = 'be-delivery:borrador-orden'
@@ -24,6 +25,7 @@ function pagoVacio(): BorradorPago {
   return {
     clave: crypto.randomUUID(),
     metodo: 'pago_movil',
+    cuenta_id: null,
     banco_id: null,
     referencia: '',
     emisor: '',
@@ -46,7 +48,7 @@ function formularioVacio() {
 }
 
 export function NuevaOrden() {
-  const { zonas, repartidores, bancos, hoy, usuario } = useSesion()
+  const { zonas, repartidores, bancos, cuentas, hoy, usuario } = useSesion()
   const { tasa, cargando: cargandoTasa, guardar: guardarTasa } = useTasa(hoy)
 
   const [form, setForm] = useState(formularioVacio)
@@ -56,8 +58,8 @@ export function NuevaOrden() {
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
 
-  // Duplicados detectados contra lo ya cargado en la base, por clave de pago.
-  const [duplicados, setDuplicados] = useState<Record<string, string | null>>({})
+  // Choques contra lo ya cargado en la base, por clave de pago.
+  const [choques, setChoques] = useState<Record<string, Choque | null>>({})
   const [facturaDuplicada, setFacturaDuplicada] = useState(false)
 
   const [tasaTexto, setTasaTexto] = useState('')
@@ -116,8 +118,12 @@ export function NuevaOrden() {
 
   const problemas = useMemo(() => validarOrden(datosAValidar), [datosAValidar])
   const resumen = useMemo(() => calcularResumen(datosAValidar), [datosAValidar])
-  const hayDuplicado = Object.values(duplicados).some(Boolean)
-  const bloqueado = tieneErrores(problemas) || hayDuplicado || facturaDuplicada
+
+  // Un choque de referencia avisa pero no tranca: con referencias de 4 dígitos,
+  // que dos pagos distintos compartan los mismos números es normal, y dejar a la
+  // cajera sin poder guardar con el cliente en línea sería peor que el problema
+  // que se quiere evitar. Lo decide ella con el monto a la vista.
+  const bloqueado = tieneErrores(problemas) || facturaDuplicada
 
   const erroresPorCampo = useMemo(() => {
     const mapa: Record<string, string> = {}
@@ -138,10 +144,18 @@ export function NuevaOrden() {
   // La unicidad de verdad la impone la base de datos; esto es el aviso amable.
   // ---------------------------------------------------------------------
 
+  interface PagoExistente {
+    referencia: string
+    monto: number
+    moneda: Moneda
+    cuenta_id: string | null
+    ordenes: { numero_factura: string; fecha_operativa: string }
+  }
+
   const revisarDuplicados = useCallback(async () => {
     const conReferencia = pagos.filter((p) => normalizarReferencia(p.referencia).length >= 4)
     if (conReferencia.length === 0) {
-      setDuplicados({})
+      setChoques({})
       return
     }
 
@@ -153,26 +167,36 @@ export function NuevaOrden() {
 
     const { data, error } = await supabase
       .from('pagos')
-      .select('referencia, banco_id, ordenes!inner(numero_factura, fecha_operativa)')
+      .select('referencia, monto, moneda, cuenta_id, ordenes!inner(numero_factura, fecha_operativa)')
       .not('referencia', 'is', null)
       .gte('ordenes.fecha_operativa', desdeTexto)
 
     if (error || !data) return
 
-    const encontrados: Record<string, string | null> = {}
+    const existentes = data as unknown as PagoExistente[]
+    const encontrados: Record<string, Choque | null> = {}
+
     for (const pago of conReferencia) {
-      const choque = data.find((fila) => {
-        const otra = fila as unknown as {
-          referencia: string
-          banco_id: string | null
-          ordenes: { numero_factura: string }
-        }
-        return otra.referencia && referenciasCoinciden(otra.referencia, pago.referencia)
-      })
-      const registro = choque as unknown as { ordenes?: { numero_factura: string } } | undefined
-      encontrados[pago.clave] = registro?.ordenes?.numero_factura ?? null
+      const previo = existentes.find(
+        (otro) =>
+          otro.referencia &&
+          referenciasCoinciden(otro.referencia, pago.referencia) &&
+          // Dos cuentas distintas pueden repetir los mismos 4 dígitos sin que
+          // eso signifique nada; solo choca dentro de la misma cuenta.
+          (!pago.cuenta_id || !otro.cuenta_id || otro.cuenta_id === pago.cuenta_id),
+      )
+
+      encontrados[pago.clave] = previo
+        ? {
+            factura: previo.ordenes.numero_factura,
+            monto: Number(previo.monto),
+            moneda: previo.moneda,
+            fecha: previo.ordenes.fecha_operativa,
+            fuerza: fuerzaDeDuplicado(pago.referencia, aNumero(pago.monto), Number(previo.monto)),
+          }
+        : null
     }
-    setDuplicados(encontrados)
+    setChoques(encontrados)
   }, [pagos])
 
   useEffect(() => {
@@ -206,7 +230,7 @@ export function NuevaOrden() {
     setForm(formularioVacio())
     setPagos([pagoVacio()])
     setTocado(false)
-    setDuplicados({})
+    setChoques({})
     setFacturaDuplicada(false)
     localStorage.removeItem(CLAVE_BORRADOR)
     refFactura.current?.focus()
@@ -255,6 +279,7 @@ export function NuevaOrden() {
         pagos.map((pago, i) => ({
           orden_id: orden.id,
           metodo: pago.metodo,
+          cuenta_id: pago.cuenta_id,
           banco_id: pago.banco_id,
           referencia: pago.referencia.trim() || null,
           emisor: pago.emisor.trim() || null,
@@ -440,9 +465,10 @@ export function NuevaOrden() {
                   key={pago.clave}
                   pago={pago}
                   indice={i}
+                  cuentas={cuentas}
                   bancos={bancos}
                   errores={tocado ? erroresPorCampo : {}}
-                  duplicado={duplicados[pago.clave]}
+                  choque={choques[pago.clave]}
                   onCambiar={(cambios) =>
                     setPagos(pagos.map((p) => (p.clave === pago.clave ? { ...p, ...cambios } : p)))
                   }

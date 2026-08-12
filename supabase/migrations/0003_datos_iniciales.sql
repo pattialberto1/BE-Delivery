@@ -44,6 +44,26 @@ insert into bancos (nombre, codigo, orden) values
 on conflict (nombre) do nothing;
 
 -- ---------------------------------------------------------------------------
+-- Cuentas propias del local — dónde cae la plata
+--
+-- Son la columna "BANCO" de la hoja de papel. Se cargan las dos que aparecen
+-- en la hoja (BP y BB); si el local recibe en más cuentas, se agregan desde
+-- Configuración.
+--
+-- ⚠ CONFIRMAR a qué banco corresponde cada abreviatura, y cargar el teléfono
+--   de pago móvil y los últimos dígitos de cada cuenta.
+-- ---------------------------------------------------------------------------
+
+insert into cuentas (nombre, abreviatura, banco_id, orden)
+select c.nombre, c.abreviatura, b.id, c.orden
+from (values
+  ('Banco Plaza',  'BP', 'Banco Plaza',  1),
+  ('Bicentenario', 'BB', 'Bicentenario', 2)
+) as c(nombre, abreviatura, banco, orden)
+left join bancos b on b.nombre = c.banco
+on conflict (abreviatura) do nothing;
+
+-- ---------------------------------------------------------------------------
 -- Zonas de delivery
 --
 -- `orden` agrupa por precio igual que el cuadro en papel (20 = $2, 30 = $3…),

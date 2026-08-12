@@ -29,6 +29,8 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
   - número de factura repetido,
   - lo pagado no cuadra con el total,
   - faltan números en el correlativo de facturas del día.
+- **Registra en cuál de nuestras cuentas cayó cada pago** (la columna «BANCO»
+  del papel), que es el dato que dice en qué banco meterse a confirmarlo.
 - **Verificación**: la administradora ve la captura del pago al lado de lo que
   se tecleó y aprueba con un botón. Ya no coteja contra papel impreso.
 - **Cierre del día**: totales por forma de pago, delivery cobrado, total a pagar
@@ -141,14 +143,24 @@ src/
 supabase/migrations/  Esquema de la base de datos.
 ```
 
-Dos decisiones que conviene conocer antes de tocar el código:
+Tres decisiones que conviene conocer antes de tocar el código:
 
 - **Las tarifas se copian dentro de cada orden**, no solo se referencian a la
   zona. Si mañana suben los precios, las órdenes viejas conservan lo que
   realmente se cobró y se pagó ese día, y los reportes históricos no se mueven.
-- **La unicidad de las referencias la impone la base de datos**, no la pantalla.
-  El aviso mientras se teclea es una cortesía para poder corregir con el cliente
-  en línea; la garantía real es un índice único en Postgres.
+- **Las referencias cortas no se pueden tratar como únicas.** En la hoja de
+  papel se anotan con 4 dígitos, porque es lo que muestran las apps de los
+  bancos. Con 10.000 valores posibles y el volumen de una semana, que dos pagos
+  distintos compartan esos 4 dígitos es esperable, no raro. Por eso la app
+  **avisa** mostrando la factura y el monto en conflicto, pero deja guardar:
+  trancar a la cajera con el cliente en línea sería peor que el problema que se
+  quiere evitar. La base solo exige unicidad cuando la referencia tiene 8
+  dígitos o más, donde una repetición sí delata la misma captura mandada dos
+  veces. Si además del número coincide el monto, el aviso sube de tono.
+- **`bancos` y `cuentas` son cosas distintas.** `cuentas` son las nuestras —
+  dónde cae la plata, la columna «BANCO» del papel — y es obligatorio saberlo
+  para poder ir a confirmar el pago. `bancos` es de dónde salió el pago del
+  cliente, y es opcional.
 
 ---
 
@@ -177,6 +189,12 @@ Orden sugerido para no cambiarlo todo de golpe:
   consultas listas para los esquemas más comunes ($1 menos por zona, un
   porcentaje, un monto fijo, o una tarifa por banda de precio). También se puede
   ajustar zona por zona desde Configuración.
+- **Qué son «Maxi Santiago» y la columna «CARRERA»** de la hoja: si ese nombre
+  es el del repartidor y la hoja es una por repartidor, entonces el monto de
+  CARRERA es lo que se le paga a él — y con eso queda resuelto el punto de
+  arriba. También falta saber qué significa la «P» en vez de un monto.
+- **Las abreviaturas de las cuentas.** Se cargaron `BP` = Banco Plaza y
+  `BB` = Bicentenario a partir de la hoja; confirmar que son esas.
 - La lista de **repartidores** (nombre y teléfono).
 - Confirmar la **hora de corte** de la jornada (por defecto, 5 a.m.).
 - Si la **tasa** que se usa es la del BCV o una propia del local, y quién la

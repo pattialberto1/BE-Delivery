@@ -4,13 +4,15 @@ import {
   buscarPorNombre,
   calcularResumen,
   detectarSaltosDeFactura,
+  fuerzaDeDuplicado,
   normalizarTexto,
+  referenciaEsConfiable,
   fechaOperativa,
   monedaDeMetodo,
   normalizarReferencia,
   pagoEnUSD,
   referenciasCoinciden,
-  requiereBanco,
+  requiereCuenta,
   requiereCaptura,
   requiereReferencia,
   tieneErrores,
@@ -24,7 +26,8 @@ function pago(parcial: Partial<BorradorPago> = {}): BorradorPago {
   return {
     clave: Math.random().toString(36).slice(2),
     metodo: 'pago_movil',
-    banco_id: 'banco-1',
+    cuenta_id: 'cuenta-1',
+    banco_id: null,
     referencia: '123456789',
     emisor: '04141234567',
     monto: '100',
@@ -112,14 +115,14 @@ describe('reglas por forma de pago', () => {
     for (const metodo of ['efectivo_bs', 'efectivo_usd'] as MetodoPago[]) {
       expect(requiereReferencia(metodo)).toBe(false)
       expect(requiereCaptura(metodo)).toBe(false)
-      expect(requiereBanco(metodo)).toBe(false)
+      expect(requiereCuenta(metodo)).toBe(false)
     }
   })
 
-  it('le pide banco al pago móvil y a la transferencia', () => {
-    expect(requiereBanco('pago_movil')).toBe(true)
-    expect(requiereBanco('transferencia')).toBe(true)
-    expect(requiereBanco('zelle')).toBe(false)
+  it('le pide la cuenta receptora al pago móvil y a la transferencia', () => {
+    expect(requiereCuenta('pago_movil')).toBe(true)
+    expect(requiereCuenta('transferencia')).toBe(true)
+    expect(requiereCuenta('zelle')).toBe(false)
   })
 
   it('asigna la moneda que corresponde a cada método', () => {
@@ -206,16 +209,31 @@ describe('validarOrden', () => {
 
   it('no exige referencia al efectivo', () => {
     const problemas = validarOrden(
-      orden({ pagos: [pago({ metodo: 'efectivo_usd', moneda: 'USD', monto: '12', referencia: '', banco_id: null })] }),
+      orden({ pagos: [pago({ metodo: 'efectivo_usd', moneda: 'USD', monto: '12', referencia: '', cuenta_id: null, banco_id: null })] }),
     )
     expect(tieneErrores(problemas)).toBe(false)
   })
 
-  it('detecta la misma referencia repetida dentro de la orden', () => {
+  it('bloquea la misma referencia con el mismo monto dentro de la orden', () => {
     const problemas = validarOrden(
       orden({ pagos: [pago({ referencia: '123456', monto: '240' }), pago({ referencia: '0123456', monto: '240' })] }),
     )
-    expect(problemas.some((p) => p.mensaje.includes('repetida') && p.nivel === 'error')).toBe(true)
+    expect(problemas.some((p) => p.mensaje.includes('ya están en esta misma orden') && p.nivel === 'error')).toBe(true)
+  })
+
+  it('solo avisa si la referencia corta se repite pero con otro monto', () => {
+    // Con 4 dígitos, dos pagos distintos pueden compartir los mismos números.
+    const problemas = validarOrden(
+      orden({ pagos: [pago({ referencia: '9319', monto: '240' }), pago({ referencia: '9319', monto: '300' })] }),
+    )
+    const choque = problemas.find((p) => p.mensaje.includes('coincide la referencia'))
+    expect(choque?.nivel).toBe('aviso')
+    expect(tieneErrores(problemas)).toBe(false)
+  })
+
+  it('exige saber en qué cuenta nuestra entró el pago móvil', () => {
+    const problemas = validarOrden(orden({ pagos: [pago({ cuenta_id: null, monto: '480' })] }))
+    expect(problemas.some((p) => p.campo.endsWith('.cuenta_id') && p.nivel === 'error')).toBe(true)
   })
 
   it('avisa del descuadre sin bloquear el guardado', () => {
@@ -240,6 +258,35 @@ describe('validarOrden', () => {
   it('rechaza un monto de pedido negativo', () => {
     const problemas = validarOrden(orden({ monto_pedido_usd: '-5' }))
     expect(problemas.some((p) => p.campo === 'monto_pedido_usd' && p.nivel === 'error')).toBe(true)
+  })
+})
+
+describe('confianza de las referencias', () => {
+  it('trata como poco confiables las referencias de 4 dígitos', () => {
+    // Es lo que muestran las apps de los bancos y lo que se anota en el papel.
+    expect(referenciaEsConfiable('9319')).toBe(false)
+    expect(referenciaEsConfiable('123456')).toBe(false)
+  })
+
+  it('confía en las referencias de 8 dígitos o más', () => {
+    expect(referenciaEsConfiable('12345678')).toBe(true)
+    expect(referenciaEsConfiable('0012-3456-78')).toBe(true)
+  })
+
+  it('con referencia corta, el monto igual delata la captura reenviada', () => {
+    expect(fuerzaDeDuplicado('9319', 24460, 24460)).toBe('seguro')
+  })
+
+  it('con referencia corta y monto distinto, la coincidencia puede ser casual', () => {
+    expect(fuerzaDeDuplicado('9319', 24460, 12995)).toBe('posible')
+  })
+
+  it('con referencia larga, la repetición basta sin mirar el monto', () => {
+    expect(fuerzaDeDuplicado('123456789', 100, 999)).toBe('seguro')
+  })
+
+  it('no tropieza con los centavos del redondeo', () => {
+    expect(fuerzaDeDuplicado('9319', 24460.0, 24460.004)).toBe('seguro')
   })
 })
 

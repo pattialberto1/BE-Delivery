@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { fechaOperativa } from '../lib/reglas'
-import type { Banco, Repartidor, Usuario, Zona } from '../lib/tipos'
+import type { Banco, Cuenta, Repartidor, Usuario, Zona } from '../lib/tipos'
 
 /** Hora a partir de la cual empieza el día operativo nuevo. Configurable por entorno. */
 const HORA_CORTE = Number(import.meta.env.VITE_HORA_CORTE ?? '5')
@@ -16,6 +16,8 @@ interface ValorSesion {
   zonas: Zona[]
   repartidores: Repartidor[]
   bancos: Banco[]
+  /** Cuentas propias del local: dónde puede caer la plata. */
+  cuentas: Cuenta[]
   /** Día operativo en curso, en formato YYYY-MM-DD. */
   hoy: string
   puedeEscribir: boolean
@@ -34,6 +36,7 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   const [zonas, setZonas] = useState<Zona[]>([])
   const [repartidores, setRepartidores] = useState<Repartidor[]>([])
   const [bancos, setBancos] = useState<Banco[]>([])
+  const [cuentas, setCuentas] = useState<Cuenta[]>([])
   const [hoy, setHoy] = useState(() => fechaOperativa(new Date(), HORA_CORTE))
 
   // El local trabaja de noche y la tablet queda abierta: si la app sigue viva
@@ -66,14 +69,16 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   }, [])
 
   const recargarCatalogos = useCallback(async () => {
-    const [resZonas, resRepartidores, resBancos] = await Promise.all([
+    const [resZonas, resRepartidores, resBancos, resCuentas] = await Promise.all([
       supabase.from('zonas').select('*').order('orden').order('nombre'),
       supabase.from('repartidores').select('*').order('nombre'),
       supabase.from('bancos').select('*').order('orden').order('nombre'),
+      supabase.from('cuentas').select('*').order('orden').order('nombre'),
     ])
     if (resZonas.data) setZonas(resZonas.data as Zona[])
     if (resRepartidores.data) setRepartidores(resRepartidores.data as Repartidor[])
     if (resBancos.data) setBancos(resBancos.data as Banco[])
+    if (resCuentas.data) setCuentas(resCuentas.data as Cuenta[])
   }, [])
 
   useEffect(() => {
@@ -122,13 +127,14 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
       zonas,
       repartidores,
       bancos,
+      cuentas,
       hoy,
       puedeEscribir: usuario?.rol === 'cajera' || usuario?.rol === 'admin',
       esAdmin: usuario?.rol === 'admin',
       recargarCatalogos,
       salir,
     }),
-    [cargando, sesion, usuario, sinActivar, zonas, repartidores, bancos, hoy, recargarCatalogos, salir],
+    [cargando, sesion, usuario, sinActivar, zonas, repartidores, bancos, cuentas, hoy, recargarCatalogos, salir],
   )
 
   return <ContextoSesion.Provider value={valor}>{children}</ContextoSesion.Provider>

@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
-import { ETIQUETA_METODO, type Banco, type BorradorPago, type MetodoPago } from '../lib/tipos'
-import { monedaDeMetodo, requiereBanco, requiereCaptura, requiereReferencia } from '../lib/reglas'
+import { ETIQUETA_METODO, type Banco, type BorradorPago, type Cuenta, type MetodoPago } from '../lib/tipos'
+import {
+  admiteBancoEmisor,
+  formatearMonto,
+  monedaDeMetodo,
+  requiereCaptura,
+  requiereCuenta,
+  requiereReferencia,
+} from '../lib/reglas'
 import { Boton, Campo, Entrada, Insignia, Seleccion } from './UI'
 
 const METODOS: MetodoPago[] = [
@@ -13,18 +20,27 @@ const METODOS: MetodoPago[] = [
   'punto_venta',
 ]
 
+/** Un pago ya cargado antes que choca con el que se está tecleando. */
+export interface Choque {
+  factura: string
+  monto: number
+  moneda: 'BS' | 'USD'
+  fecha: string
+  fuerza: 'seguro' | 'posible'
+}
+
 interface Props {
   pago: BorradorPago
   indice: number
+  cuentas: Cuenta[]
   bancos: Banco[]
   errores: Record<string, string>
-  /** Referencia ya usada en otra orden — la alerta clave contra la captura repetida. */
-  duplicado?: string | null
+  choque?: Choque | null
   onCambiar: (cambios: Partial<BorradorPago>) => void
   onEliminar: () => void
 }
 
-export function FilaPago({ pago, indice, bancos, errores, duplicado, onCambiar, onEliminar }: Props) {
+export function FilaPago({ pago, indice, cuentas, bancos, errores, choque, onCambiar, onEliminar }: Props) {
   const [previsualizacion, setPrevisualizacion] = useState<string | null>(null)
 
   // La miniatura de la captura sale de un blob local; hay que liberarlo al
@@ -39,7 +55,8 @@ export function FilaPago({ pago, indice, bancos, errores, duplicado, onCambiar, 
     return () => URL.revokeObjectURL(url)
   }, [pago.archivo])
 
-  const conBanco = requiereBanco(pago.metodo)
+  const conCuenta = requiereCuenta(pago.metodo)
+  const conBancoEmisor = admiteBancoEmisor(pago.metodo)
   const conReferencia = requiereReferencia(pago.metodo)
   const conCaptura = requiereCaptura(pago.metodo)
   const err = (campo: string) => errores[`pago.${pago.clave}.${campo}`]
@@ -64,7 +81,8 @@ export function FilaPago({ pago, indice, bancos, errores, duplicado, onCambiar, 
               onCambiar({
                 metodo,
                 moneda: monedaDeMetodo(metodo),
-                banco_id: requiereBanco(metodo) ? pago.banco_id : null,
+                cuenta_id: requiereCuenta(metodo) ? pago.cuenta_id : null,
+                banco_id: admiteBancoEmisor(metodo) ? pago.banco_id : null,
                 referencia: requiereReferencia(metodo) ? pago.referencia : '',
               })
             }}
@@ -77,16 +95,20 @@ export function FilaPago({ pago, indice, bancos, errores, duplicado, onCambiar, 
           </Seleccion>
         </Campo>
 
-        {conBanco && (
-          <Campo etiqueta="Banco emisor" requerido error={err('banco_id')}>
-            <Seleccion value={pago.banco_id ?? ''} onChange={(e) => onCambiar({ banco_id: e.target.value || null })}>
+        {conCuenta && (
+          <Campo
+            etiqueta="Entró en"
+            requerido
+            error={err('cuenta_id')}
+            ayuda="Nuestra cuenta que recibió"
+          >
+            <Seleccion value={pago.cuenta_id ?? ''} onChange={(e) => onCambiar({ cuenta_id: e.target.value || null })}>
               <option value="">— Elegir —</option>
-              {bancos
-                .filter((b) => b.activo)
-                .map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.codigo ? `${b.codigo} · ` : ''}
-                    {b.nombre}
+              {cuentas
+                .filter((c) => c.activo)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.abreviatura} · {c.nombre}
                   </option>
                 ))}
             </Seleccion>
@@ -94,12 +116,12 @@ export function FilaPago({ pago, indice, bancos, errores, duplicado, onCambiar, 
         )}
 
         {conReferencia && (
-          <Campo etiqueta="Referencia" requerido error={err('referencia')}>
+          <Campo etiqueta="Referencia" requerido error={err('referencia')} ayuda="Como aparece en la captura">
             <Entrada
               value={pago.referencia}
               onChange={(e) => onCambiar({ referencia: e.target.value })}
               inputMode="numeric"
-              placeholder="Número de la captura"
+              placeholder="Ej: 9319"
             />
           </Campo>
         )}
@@ -113,8 +135,24 @@ export function FilaPago({ pago, indice, bancos, errores, duplicado, onCambiar, 
           />
         </Campo>
 
+        {conBancoEmisor && (
+          <Campo etiqueta="Banco del cliente" ayuda="Opcional">
+            <Seleccion value={pago.banco_id ?? ''} onChange={(e) => onCambiar({ banco_id: e.target.value || null })}>
+              <option value="">— Sin especificar —</option>
+              {bancos
+                .filter((b) => b.activo)
+                .map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.codigo ? `${b.codigo} · ` : ''}
+                    {b.nombre}
+                  </option>
+                ))}
+            </Seleccion>
+          </Campo>
+        )}
+
         {conReferencia && (
-          <Campo etiqueta="Emisor" ayuda="Teléfono o cédula de la captura">
+          <Campo etiqueta="Emisor" ayuda="Teléfono o cédula, opcional">
             <Entrada
               value={pago.emisor}
               onChange={(e) => onCambiar({ emisor: e.target.value })}
@@ -149,10 +187,23 @@ export function FilaPago({ pago, indice, bancos, errores, duplicado, onCambiar, 
         )}
       </div>
 
-      {duplicado && (
-        <p className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-900">
-          ⚠ Esta referencia ya está cargada en la factura {duplicado}. Revisa si el cliente mandó la misma captura dos
-          veces.
+      {/* El aviso muestra el monto del pago que choca: si es el mismo, casi
+          seguro es la captura reenviada; si no, con referencias de 4 dígitos
+          la coincidencia puede ser casual y la decide la cajera. */}
+      {choque && (
+        <p
+          className={`mt-3 rounded-md border px-3 py-2 text-sm font-semibold ${
+            choque.fuerza === 'seguro'
+              ? 'border-red-300 bg-red-50 text-red-900'
+              : 'border-amber-300 bg-amber-50 text-amber-900'
+          }`}
+        >
+          {choque.fuerza === 'seguro' ? '⚠ Ya cargado: ' : 'Ojo: '}
+          esta referencia está en la factura {choque.factura} por{' '}
+          {formatearMonto(choque.monto, choque.moneda)}
+          {choque.fuerza === 'seguro'
+            ? '. Revisa si el cliente mandó la misma captura dos veces.'
+            : ', con un monto distinto al de aquí. Con referencias de 4 dígitos esto puede ser casualidad — confirma antes de seguir.'}
         </p>
       )}
 

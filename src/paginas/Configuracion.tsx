@@ -3,11 +3,11 @@ import { useSesion } from '../contexto/Sesion'
 import { useTasa } from '../hooks/useTasa'
 import { mensajeDeError, supabase } from '../lib/supabase'
 import { aNumero, formatearUSD } from '../lib/reglas'
-import { ETIQUETA_ROL, type RolUsuario, type Usuario, type Zona } from '../lib/tipos'
+import { ETIQUETA_ROL, type Cuenta, type RolUsuario, type Usuario, type Zona } from '../lib/tipos'
 import { Alerta, Boton, Campo, ContenedorTabla, Entrada, Seleccion, Tarjeta, Vacio } from '../componentes/UI'
 
 export function Configuracion() {
-  const { zonas, repartidores, recargarCatalogos, hoy, usuario } = useSesion()
+  const { zonas, repartidores, cuentas, recargarCatalogos, hoy, usuario } = useSesion()
   const { tasa, guardar: guardarTasa } = useTasa(hoy)
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
@@ -34,6 +34,7 @@ export function Configuracion() {
       {aviso && <Alerta tono="exito">{aviso}</Alerta>}
 
       <TasaDelDia tasa={tasa} onGuardar={guardarTasa} onError={reportar} />
+      <CuadroCuentas cuentas={cuentas} onCorrer={correr} />
       <CuadroZonas zonas={zonas} onCorrer={correr} />
       <CuadroRepartidores repartidores={repartidores} onCorrer={correr} />
       <CuadroUsuarios miId={usuario?.id} onError={reportar} />
@@ -87,6 +88,87 @@ function TasaDelDia({
 // ---------------------------------------------------------------------------
 
 type Correr = (accion: () => PromiseLike<{ error: unknown }>, mensaje: string) => Promise<void>
+
+function CuadroCuentas({ cuentas, onCorrer }: { cuentas: Cuenta[]; onCorrer: Correr }) {
+  const [nombre, setNombre] = useState('')
+  const [abreviatura, setAbreviatura] = useState('')
+  const [telefono, setTelefono] = useState('')
+
+  return (
+    <Tarjeta titulo="Nuestras cuentas">
+      <Alerta tono="info" className="mb-3">
+        Son las cuentas donde <strong>cae</strong> la plata — la columna «BANCO» de la hoja de papel (BP, BB…). Al
+        cargar un pago móvil, saber en cuál entró es lo que dice en qué banco hay que meterse a confirmarlo.
+      </Alerta>
+
+      <ul className="divide-y divide-slate-100">
+        {cuentas.map((c) => (
+          <li key={c.id} className={`flex items-center justify-between gap-3 py-2 ${c.activo ? '' : 'opacity-50'}`}>
+            <div>
+              <p className="font-semibold">
+                <span className="mr-2 rounded bg-slate-200 px-1.5 py-0.5 font-mono text-sm">{c.abreviatura}</span>
+                {c.nombre}
+              </p>
+              {c.telefono_pago_movil && <p className="text-sm text-slate-500">{c.telefono_pago_movil}</p>}
+            </div>
+            <Boton
+              variante="secundario"
+              className="min-h-9 px-3 text-xs"
+              onClick={() =>
+                onCorrer(
+                  () => supabase.from('cuentas').update({ activo: !c.activo }).eq('id', c.id),
+                  c.activo ? 'Cuenta desactivada.' : 'Cuenta activada.',
+                )
+              }
+            >
+              {c.activo ? 'Desactivar' : 'Activar'}
+            </Boton>
+          </li>
+        ))}
+        {cuentas.length === 0 && <Vacio>Todavía no hay cuentas cargadas.</Vacio>}
+      </ul>
+
+      <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-200 pt-4">
+        <Campo etiqueta="Cuenta nueva" className="min-w-44 flex-1">
+          <Entrada value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Banco Plaza" />
+        </Campo>
+        <Campo etiqueta="Abreviatura" ayuda="Como en el papel" className="w-32">
+          <Entrada
+            value={abreviatura}
+            onChange={(e) => setAbreviatura(e.target.value.toUpperCase())}
+            placeholder="BP"
+            maxLength={6}
+          />
+        </Campo>
+        <Campo etiqueta="Teléfono pago móvil" className="w-44">
+          <Entrada value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" placeholder="Opcional" />
+        </Campo>
+        <Boton
+          disabled={!nombre.trim() || !abreviatura.trim()}
+          onClick={async () => {
+            await onCorrer(
+              () =>
+                supabase.from('cuentas').insert({
+                  nombre: nombre.trim(),
+                  abreviatura: abreviatura.trim(),
+                  telefono_pago_movil: telefono.trim() || null,
+                  orden: cuentas.length + 1,
+                }),
+              'Cuenta agregada.',
+            )
+            setNombre('')
+            setAbreviatura('')
+            setTelefono('')
+          }}
+        >
+          Agregar
+        </Boton>
+      </div>
+    </Tarjeta>
+  )
+}
+
+// ---------------------------------------------------------------------------
 
 function CuadroZonas({ zonas, onCorrer }: { zonas: Zona[]; onCorrer: Correr }) {
   const [nombre, setNombre] = useState('')

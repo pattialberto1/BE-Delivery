@@ -43,6 +43,18 @@ export interface Banco {
   orden: number
 }
 
+/** Cuenta propia del local: dónde cae la plata (la columna "BANCO" del papel). */
+export interface Cuenta {
+  id: string
+  nombre: string
+  abreviatura: string
+  banco_id: string | null
+  telefono_pago_movil: string | null
+  numero: string | null
+  activo: boolean
+  orden: number
+}
+
 export interface TasaCambio {
   fecha: string
   bs_por_usd: number
@@ -77,6 +89,7 @@ export interface Pago {
   id: string
   orden_id: string
   metodo: MetodoPago
+  cuenta_id: string | null
   banco_id: string | null
   referencia: string | null
   emisor: string | null
@@ -145,6 +158,7 @@ export interface TotalesCierre {
 export interface BorradorPago {
   clave: string
   metodo: MetodoPago
+  cuenta_id: string | null
   banco_id: string | null
   referencia: string
   emisor: string

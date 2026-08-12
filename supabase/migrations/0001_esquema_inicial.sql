@@ -109,6 +109,26 @@ create table bancos (
   orden int not null default 0
 );
 
+-- Cuentas propias del local: dónde CAE la plata.
+--
+-- Es la columna "BANCO" de la hoja de papel (BP, BB…). No es el banco del
+-- cliente: es a cuál de nuestras cuentas entró el pago, que es el dato que hace
+-- falta para saber en qué banco entrar a confirmarlo y para cuadrar después
+-- contra el estado de cuenta.
+create table cuentas (
+  id uuid primary key default gen_random_uuid(),
+  nombre text not null unique,
+  -- Cómo se abrevia en la hoja de papel, para que la cajera reconozca lo mismo.
+  abreviatura text not null unique,
+  banco_id uuid references bancos (id),
+  -- Teléfono del pago móvil y últimos dígitos de la cuenta, como referencia
+  -- rápida para la cajera cuando el cliente pregunta a dónde enviar.
+  telefono_pago_movil text,
+  numero text,
+  activo boolean not null default true,
+  orden int not null default 0
+);
+
 -- Una tasa por día. El delivery está tarifado en USD pero el pago móvil
 -- entra en Bs, así que hace falta el puente para cuadrar la caja.
 create table tasas_cambio (
@@ -189,6 +209,10 @@ create table pagos (
   orden_id uuid not null references ordenes (id) on delete cascade,
 
   metodo metodo_pago not null,
+  -- A cuál de nuestras cuentas entró la plata (la columna "BANCO" del papel).
+  cuenta_id uuid references cuentas (id),
+  -- Banco desde el que el cliente envió, si la captura lo muestra. Opcional:
+  -- para verificar hace falta saber dónde cayó, no de dónde salió.
   banco_id uuid references bancos (id),
   referencia text,
   -- Teléfono o cédula del emisor, según lo que muestre la captura.
@@ -206,22 +230,38 @@ create table pagos (
   constraint referencia_obligatoria check (
     metodo in ('efectivo_bs', 'efectivo_usd')
     or (referencia is not null and referencia <> '')
+  ),
+
+  -- Un pago móvil o una transferencia siempre cayeron en alguna cuenta nuestra;
+  -- sin ese dato no hay dónde ir a confirmarlos.
+  constraint cuenta_obligatoria check (
+    metodo not in ('pago_movil', 'transferencia') or cuenta_id is not null
   )
 );
 
 create index pagos_orden_idx on pagos (orden_id);
+create index pagos_referencia_idx on pagos (referencia) where referencia is not null;
 
--- La defensa real contra la captura reenviada dos veces: el mismo banco no
--- puede tener la misma referencia dos veces, sin importar quién la cargue ni
--- cuándo. Es una restricción de la base, no una validación de pantalla.
-create unique index pagos_referencia_unica
-  on pagos (banco_id, referencia)
-  where referencia is not null and banco_id is not null;
+-- ---------------------------------------------------------------------------
+-- Unicidad de las referencias
+--
+-- En la hoja de papel las referencias se anotan con solo 4 dígitos, porque es
+-- lo que muestran las apps de los bancos. Con 4 dígitos hay 10.000 valores
+-- posibles: con el volumen de una semana, que dos pagos distintos compartan los
+-- mismos 4 dígitos no es raro, es esperable.
+--
+-- Por eso NO se puede exigir unicidad global de la referencia: rechazaría pagos
+-- legítimos y dejaría a la cajera trancada con el cliente en línea.
+--
+-- La unicidad se exige solo cuando la referencia es larga (8 dígitos o más),
+-- donde una repetición sí es señal de la misma captura mandada dos veces. Para
+-- las cortas, la app avisa en pantalla mostrando la factura y el monto en
+-- conflicto, y la cajera decide — que es justo lo que hoy no puede hacer.
+-- ---------------------------------------------------------------------------
 
--- Y para los métodos sin banco (Zelle, Binance, punto de venta), única por método.
-create unique index pagos_referencia_unica_sin_banco
-  on pagos (metodo, referencia)
-  where referencia is not null and banco_id is null;
+create unique index pagos_referencia_larga_unica
+  on pagos (cuenta_id, referencia)
+  where referencia is not null and cuenta_id is not null and length(referencia) >= 8;
 
 -- ---------------------------------------------------------------------------
 -- Cierre del día
@@ -400,6 +440,7 @@ alter table usuarios enable row level security;
 alter table zonas enable row level security;
 alter table repartidores enable row level security;
 alter table bancos enable row level security;
+alter table cuentas enable row level security;
 alter table tasas_cambio enable row level security;
 alter table ordenes enable row level security;
 alter table pagos enable row level security;
@@ -427,6 +468,10 @@ create policy repartidores_admin on repartidores for all
 
 create policy bancos_leer on bancos for select using (mi_rol() is not null);
 create policy bancos_admin on bancos for all
+  using (es_admin()) with check (es_admin());
+
+create policy cuentas_leer on cuentas for select using (mi_rol() is not null);
+create policy cuentas_admin on cuentas for all
   using (es_admin()) with check (es_admin());
 
 -- La tasa del día la puede cargar la cajera al abrir; el admin la corrige.

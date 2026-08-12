@@ -14,13 +14,18 @@ import { Alerta, Boton, Cargando, Dato, Insignia, Tarjeta, Vacio } from '../comp
  * lado de lo que se tecleó y aprueba con un botón.
  */
 export function Verificacion() {
-  const { hoy, usuario } = useSesion()
+  const { hoy, usuario, cuentas } = useSesion()
   const { ordenes, cargando, recargar } = useOrdenes(hoy)
   const [pagosPorOrden, setPagosPorOrden] = useState<Record<string, Pago[]>>({})
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [indice, setIndice] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [trabajando, setTrabajando] = useState(false)
+
+  const abreviaturaDeCuenta = useCallback(
+    (cuentaId: string) => cuentas.find((c) => c.id === cuentaId)?.abreviatura ?? '—',
+    [cuentas],
+  )
 
   const pendientes = useMemo(() => ordenes.filter((o) => o.estado === 'pendiente'), [ordenes])
   const verificadas = ordenes.length - pendientes.length
@@ -156,6 +161,9 @@ export function Verificacion() {
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <Insignia>{ETIQUETA_METODO[pago.metodo]}</Insignia>
                   <span className="font-bold tabular-nums">{formatearMonto(Number(pago.monto), pago.moneda)}</span>
+                  {/* En qué cuenta cayó: es lo que dice en cuál banco entrar
+                      a confirmarlo, igual que la columna "BANCO" del papel. */}
+                  {pago.cuenta_id && <Insignia tono="neutro">{abreviaturaDeCuenta(pago.cuenta_id)}</Insignia>}
                 </div>
                 <dl className="space-y-1 text-sm">
                   <Renglon termino="Referencia" valor={pago.referencia ?? '—'} />
