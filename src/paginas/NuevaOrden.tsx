@@ -16,6 +16,7 @@ import {
 import type { BorradorPago } from '../lib/tipos'
 import { Alerta, Boton, Campo, Dato, Entrada, Seleccion, Tarjeta, AreaTexto } from '../componentes/UI'
 import { FilaPago } from '../componentes/FilaPago'
+import { SelectorZona } from '../componentes/SelectorZona'
 
 const CLAVE_BORRADOR = 'be-delivery:borrador-orden'
 
@@ -389,16 +390,14 @@ export function NuevaOrden() {
                 etiqueta="Zona"
                 requerido
                 error={tocado ? erroresPorCampo.zona_id : undefined}
-                ayuda="La tarifa sale sola del cuadro"
+                ayuda="Escribe parte del nombre; la tarifa sale sola"
               >
-                <Seleccion value={form.zona_id} onChange={(e) => setForm({ ...form, zona_id: e.target.value })}>
-                  <option value="">— Elegir zona —</option>
-                  {zonasActivas.map((z) => (
-                    <option key={z.id} value={z.id}>
-                      {z.nombre} — {formatearUSD(z.tarifa_cliente_usd)}
-                    </option>
-                  ))}
-                </Seleccion>
+                <SelectorZona
+                  zonas={zonasActivas}
+                  valor={form.zona_id}
+                  onCambiar={(zonaId) => setForm({ ...form, zona_id: zonaId })}
+                  error={tocado ? erroresPorCampo.zona_id : undefined}
+                />
               </Campo>
 
               <Campo etiqueta="Repartidor" ayuda="Se puede asignar después">

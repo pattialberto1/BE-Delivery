@@ -21,6 +21,9 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
 
 - **Alta de orden** desde la tablet: factura, cliente, zona (la tarifa aparece
   sola), repartidor y uno o varios pagos con su captura adjunta.
+- **Búsqueda de zona por nombre**: el cuadro tiene 104 zonas, así que en vez de
+  un desplegable interminable se teclea parte del nombre. Ignora tildes y
+  mayúsculas — "penon" encuentra "Peñón".
 - **Avisa mientras se teclea**, no al día siguiente:
   - referencia ya cargada antes (la captura reenviada dos veces),
   - número de factura repetido,
@@ -58,12 +61,15 @@ no le alcanza para ver los datos del negocio.
    `supabase/migrations/`:
    - `0001_esquema_inicial.sql` — tablas, reglas y permisos
    - `0002_storage_capturas.sql` — el depósito de las capturas de pago
-   - `0003_datos_iniciales.sql` — bancos venezolanos, más zonas y repartidores
-     de ejemplo
+   - `0003_datos_iniciales.sql` — bancos venezolanos y **el cuadro real de
+     deliverys** (104 zonas, de $2 a $7)
 
-> **Antes de ejecutar `0003`**, conviene reemplazar las zonas y los repartidores
-> de ejemplo por los reales. También se pueden cargar después desde
-> Configuración.
+> **Antes de ejecutar `0003`**, reemplazar los repartidores de ejemplo por los
+> reales, o cargarlos después desde Configuración.
+>
+> ⚠ Ese archivo carga `pago_repartidor_usd` **igual** a la tarifa del cliente
+> (margen cero), porque el cuadro en papel solo tiene lo que se le cobra al
+> cliente. Ver [Lo que falta definir](#lo-que-falta-definir).
 
 ### 2. Configurar la app
 
@@ -163,14 +169,24 @@ Orden sugerido para no cambiarlo todo de golpe:
 
 ## Lo que falta definir
 
-Estos datos no están en el código y hay que cargarlos desde Configuración:
-
-- El **cuadro de zonas** real, con las dos columnas: lo que se le cobra al
-  cliente y lo que se le paga al repartidor.
-- La lista de **repartidores**.
-- Confirmar la **hora de corte** de la jornada.
+- **Cuánto se le paga al repartidor por cada zona.** Es lo único que bloquea la
+  liquidación. El cuadro en papel solo tiene lo que se le cobra al cliente, así
+  que por ahora la app carga las dos columnas iguales: margen cero, el local le
+  pasa al repartidor el delivery completo. Se eligió ese valor porque nunca le
+  paga de menos a nadie. El final de `0003_datos_iniciales.sql` trae cuatro
+  consultas listas para los esquemas más comunes ($1 menos por zona, un
+  porcentaje, un monto fijo, o una tarifa por banda de precio). También se puede
+  ajustar zona por zona desde Configuración.
+- La lista de **repartidores** (nombre y teléfono).
+- Confirmar la **hora de corte** de la jornada (por defecto, 5 a.m.).
 - Si la **tasa** que se usa es la del BCV o una propia del local, y quién la
   carga cada día.
+
+Además, hay siete nombres del cuadro en papel que conviene confirmar porque no
+se leían con total claridad en la foto: **Loblán**, **Mercedores**, **Cutira**,
+**La Silsa**, **Cochecito**, **Monte Cristo** y **Av. Roosvelt** (escrito así en
+el papel, no "Roosevelt"). Se cargaron tal como se leen; cualquier corrección se
+hace desde Configuración.
 
 ## Ideas para más adelante
 

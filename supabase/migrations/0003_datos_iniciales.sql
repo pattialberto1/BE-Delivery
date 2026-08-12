@@ -1,15 +1,23 @@
 -- ============================================================================
 -- Migración 0003: datos iniciales
 --
--- Los bancos son la lista real del sistema venezolano y sirven tal cual.
+-- Bancos: la lista real del sistema venezolano, sirve tal cual.
+-- Zonas:  el cuadro real de deliverys del local (104 zonas, de $2 a $7).
 --
--- Las ZONAS y los REPARTIDORES de abajo son EJEMPLOS para poder probar la app.
--- Reemplazarlos por el cuadro real desde Configuración -> Zonas, o editando
--- este archivo antes de ejecutarlo.
+-- ⚠ PENDIENTE — LO QUE SE LE PAGA AL REPARTIDOR
+--
+-- El cuadro en papel solo tiene lo que se le COBRA AL CLIENTE. Mientras no se
+-- defina la tarifa propia del repartidor, este archivo carga
+-- `pago_repartidor_usd` igual a `tarifa_cliente_usd`, o sea margen cero: el
+-- local le pasa al repartidor todo el delivery.
+--
+-- Se eligió ese valor a propósito porque nunca le paga de menos a nadie. En
+-- cuanto se defina el esquema real, se ajusta desde Configuración -> Zonas, o
+-- con una de las consultas del final de este archivo.
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- Bancos (lista real — no hace falta tocarla)
+-- Bancos
 -- ---------------------------------------------------------------------------
 
 insert into bancos (nombre, codigo, orden) values
@@ -36,17 +44,135 @@ insert into bancos (nombre, codigo, orden) values
 on conflict (nombre) do nothing;
 
 -- ---------------------------------------------------------------------------
--- Zonas — EJEMPLO, reemplazar por el cuadro real
+-- Zonas de delivery
 --
--- tarifa_cliente_usd  = lo que se le cobra al cliente
--- pago_repartidor_usd = lo que se le paga al repartidor por esa carrera
+-- `orden` agrupa por precio igual que el cuadro en papel (20 = $2, 30 = $3…),
+-- y dentro de cada grupo la app las muestra alfabéticamente.
+--
+-- El `precio, precio` del SELECT es el marcador de posición: la primera copia
+-- es lo que se le cobra al cliente (dato real del cuadro) y la segunda es lo
+-- que se le paga al repartidor (todavía sin definir). Ver la nota de arriba.
 -- ---------------------------------------------------------------------------
 
-insert into zonas (nombre, tarifa_cliente_usd, pago_repartidor_usd, orden) values
-  ('La Candelaria', 1.50, 1.00, 1),
-  ('Zona 2',        2.50, 1.75, 2),
-  ('Zona 3',        3.50, 2.50, 3),
-  ('Zona 4',        5.00, 3.50, 4)
+insert into zonas (nombre, tarifa_cliente_usd, pago_repartidor_usd, orden)
+select nombre, precio, precio, orden
+from (values
+  -- $2,00
+  ('Panteón',            2.00, 20),
+  ('Lecuna',             2.00, 20),
+  ('Urdaneta',           2.00, 20),
+  ('Av. Universidad',    2.00, 20),
+  ('Bellas Artes',       2.00, 20),
+  ('San Bernardino',     2.00, 20),
+  ('Nuevo Circo',        2.00, 20),
+  ('San Agustín',        2.00, 20),
+  ('La Hoyada',          2.00, 20),
+
+  -- $3,00
+  ('Baralt',             3.00, 30),
+  ('Qta. Crespo',        3.00, 30),
+  ('La Pastora',         3.00, 30),
+  ('Puente Medina',      3.00, 30),
+  ('La Charneca',        3.00, 30),
+  ('Cotiza',             3.00, 30),
+  ('Altagracia',         3.00, 30),
+  ('Loblán',             3.00, 30),
+  ('Pinto Salinas',      3.00, 30),
+  ('Maripérez',          3.00, 30),
+  ('La Florida',         3.00, 30),
+  ('Libertador',         3.00, 30),
+  ('Andrés Bello',       3.00, 30),
+  ('Caño Amarillo',      3.00, 30),
+  ('Av. Sucre',          3.00, 30),
+  ('Av. San Martín',     3.00, 30),
+  ('Boyacá',             3.00, 30),
+  ('El Paraíso',         3.00, 30),
+  ('Av. Casanova',       3.00, 30),
+  ('Sabana Grande',      3.00, 30),
+  ('Plaza Venezuela',    3.00, 30),
+  ('Bello Monte',        3.00, 30),
+  ('Helicoide',          3.00, 30),
+
+  -- $4,00
+  ('El Bosque',          4.00, 40),
+  ('Lídice',             4.00, 40),
+  ('Mercedores',         4.00, 40),
+  ('Catia',              4.00, 40),
+  ('Los Robles',         4.00, 40),
+  ('23 de Enero',        4.00, 40),
+  ('Alta Vista',         4.00, 40),
+  ('Cutira',             4.00, 40),
+  ('Polvorín',           4.00, 40),
+  ('Cota 905',           4.00, 40),
+  ('La Ceiba',           4.00, 40),
+  ('Alta Florida',       4.00, 40),
+  ('Chapellín',          4.00, 40),
+  ('Chacao',             4.00, 40),
+  ('La Castellana',      4.00, 40),
+  ('Altamira',           4.00, 40),
+  ('Los Palos Grandes',  4.00, 40),
+  ('Santa María',        4.00, 40),
+  ('Montalbán',          4.00, 40),
+  ('Los Dos Caminos',    4.00, 40),
+  ('Monte Cristo',       4.00, 40),
+  ('La Carlota',         4.00, 40),
+  ('Chaguaramos',        4.00, 40),
+  ('Las Mercedes',       4.00, 40),
+  ('El Valle',           4.00, 40),
+  ('La Yaguara',         4.00, 40),
+  ('El Cementerio',      4.00, 40),
+  ('Av. Roosvelt',       4.00, 40),
+  ('La Bandera',         4.00, 40),
+  ('Fuerte Tiuna',       4.00, 40),
+  ('San Martín',         4.00, 40),
+  ('Los Naranjos',       4.00, 40),
+
+  -- $5,00
+  ('Sebucán',            5.00, 50),
+  ('Artigas',            5.00, 50),
+  ('Pérez Bonalde',      5.00, 50),
+  ('La Urbina',          5.00, 50),
+  ('Boleíta',            5.00, 50),
+  ('Los Ruices',         5.00, 50),
+  ('El Márquez',         5.00, 50),
+  ('La California',      5.00, 50),
+  ('Prados del Este',    5.00, 50),
+  ('Santa Fe',           5.00, 50),
+  ('Valle Arriba',       5.00, 50),
+  ('La Alameda',         5.00, 50),
+  ('Petare',             5.00, 50),
+  ('La Vega',            5.00, 50),
+  ('Carapita',           5.00, 50),
+  ('Antímano',           5.00, 50),
+  ('El Cafetal',         5.00, 50),
+  ('Santa Inés',         5.00, 50),
+  ('Peñón',              5.00, 50),
+  ('Cochecito',          5.00, 50),
+  ('La Silsa',           5.00, 50),
+  ('Vista Alegre',       5.00, 50),
+  ('Santa Paula',        5.00, 50),
+  ('Mamera',             5.00, 50),
+
+  -- $6,00
+  ('La Rinconada',       6.00, 60),
+  ('Ruiz Pineda',        6.00, 60),
+  ('Caricuao',           6.00, 60),
+  ('Piedra Azul',        6.00, 60),
+  ('Las Mayas',          6.00, 60),
+  ('Trinidad',           6.00, 60),
+  ('La Tahona',          6.00, 60),
+  ('El Hatillo',         6.00, 60),
+  ('Macaracuay',         6.00, 60),
+  ('Palo Verde',         6.00, 60),
+  ('La Bonita',          6.00, 60),
+  ('Propatria',          6.00, 60),
+  ('Casalta',            6.00, 60),
+  ('Cruz del Este',      6.00, 60),
+
+  -- $7,00
+  ('Punto Fijo',         7.00, 70),
+  ('Alto Hatillo',       7.00, 70)
+) as cuadro(nombre, precio, orden)
 on conflict (nombre) do nothing;
 
 -- ---------------------------------------------------------------------------
@@ -57,3 +183,28 @@ insert into repartidores (nombre, telefono) values
   ('Repartidor 1', null),
   ('Repartidor 2', null)
 on conflict do nothing;
+
+-- ============================================================================
+-- Cuando se defina cuánto se le paga al repartidor, correr UNA de estas.
+-- (Están comentadas a propósito: hay que elegir y descomentar.)
+-- ============================================================================
+
+-- Opción A — se le paga $1 menos que lo que paga el cliente en cada zona,
+-- sin bajar de $1:
+-- update zonas set pago_repartidor_usd = greatest(tarifa_cliente_usd - 1, 1);
+
+-- Opción B — se le paga un porcentaje de lo cobrado (aquí, 70%):
+-- update zonas set pago_repartidor_usd = round(tarifa_cliente_usd * 0.70, 2);
+
+-- Opción C — monto fijo por carrera, sin importar la zona (aquí, $2):
+-- update zonas set pago_repartidor_usd = 2.00;
+
+-- Opción D — tarifa distinta por banda de precio:
+-- update zonas set pago_repartidor_usd = case tarifa_cliente_usd
+--   when 2.00 then 1.50
+--   when 3.00 then 2.00
+--   when 4.00 then 3.00
+--   when 5.00 then 4.00
+--   when 6.00 then 5.00
+--   when 7.00 then 6.00
+-- end;

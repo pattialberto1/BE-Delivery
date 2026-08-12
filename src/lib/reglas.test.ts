@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   aNumero,
+  buscarPorNombre,
   calcularResumen,
   detectarSaltosDeFactura,
+  normalizarTexto,
   fechaOperativa,
   monedaDeMetodo,
   normalizarReferencia,
@@ -238,6 +240,58 @@ describe('validarOrden', () => {
   it('rechaza un monto de pedido negativo', () => {
     const problemas = validarOrden(orden({ monto_pedido_usd: '-5' }))
     expect(problemas.some((p) => p.campo === 'monto_pedido_usd' && p.nivel === 'error')).toBe(true)
+  })
+})
+
+describe('normalizarTexto', () => {
+  it('quita tildes y la ñ', () => {
+    expect(normalizarTexto('Peñón')).toBe('penon')
+    expect(normalizarTexto('El Paraíso')).toBe('el paraiso')
+    expect(normalizarTexto('Montalbán')).toBe('montalban')
+  })
+
+  it('pasa todo a minúsculas y recorta los bordes', () => {
+    expect(normalizarTexto('  CHACAO  ')).toBe('chacao')
+  })
+})
+
+describe('buscarPorNombre', () => {
+  const zonas = [
+    { nombre: 'Chacao' },
+    { nombre: 'La Charneca' },
+    { nombre: 'Peñón' },
+    { nombre: 'El Paraíso' },
+    { nombre: 'La Bandera' },
+    { nombre: 'Plaza Venezuela' },
+  ]
+
+  it('encuentra sin exigir tildes ni la ñ', () => {
+    expect(buscarPorNombre(zonas, 'penon').map((z) => z.nombre)).toEqual(['Peñón'])
+    expect(buscarPorNombre(zonas, 'paraiso').map((z) => z.nombre)).toEqual(['El Paraíso'])
+  })
+
+  it('busca por cualquier parte del nombre', () => {
+    expect(buscarPorNombre(zonas, 'charneca').map((z) => z.nombre)).toEqual(['La Charneca'])
+  })
+
+  it('ignora mayúsculas', () => {
+    expect(buscarPorNombre(zonas, 'CHACAO').map((z) => z.nombre)).toEqual(['Chacao'])
+  })
+
+  it('pone primero las que empiezan con lo tecleado', () => {
+    // "La Bandera" y "La Charneca" empiezan con "la"; "Plaza Venezuela" lo
+    // tiene más adelante, así que va al final.
+    const nombres = buscarPorNombre(zonas, 'la').map((z) => z.nombre)
+    expect(nombres).toEqual(['La Bandera', 'La Charneca', 'Plaza Venezuela'])
+  })
+
+  it('devuelve todo cuando no se ha tecleado nada', () => {
+    expect(buscarPorNombre(zonas, '')).toHaveLength(zonas.length)
+    expect(buscarPorNombre(zonas, '   ')).toHaveLength(zonas.length)
+  })
+
+  it('devuelve vacío si nada coincide', () => {
+    expect(buscarPorNombre(zonas, 'zzz')).toEqual([])
   })
 })
 

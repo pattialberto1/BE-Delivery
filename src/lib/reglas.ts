@@ -108,10 +108,51 @@ export function aNumero(texto: string): number {
   return Number.isFinite(valor) ? valor : NaN
 }
 
+/**
+ * Prepara un texto para buscar: sin acentos, en minúsculas y sin espacios de
+ * sobra.
+ *
+ * Con 104 zonas, la cajera va a teclear "penon" o "paraiso" con el cliente
+ * esperando; exigirle la ñ y las tildes sería hacerle perder tiempo.
+ */
+export function normalizarTexto(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // marcas de acento que deja NFD
+    .toLowerCase()
+    .trim()
+}
+
+/**
+ * Ordena las coincidencias de una búsqueda poniendo primero las que empiezan
+ * con lo tecleado. Buscar "la" debe mostrar "La Bandera" antes que "Boleíta".
+ */
+export function buscarPorNombre<T extends { nombre: string }>(elementos: T[], consulta: string): T[] {
+  const busqueda = normalizarTexto(consulta)
+  if (!busqueda) return elementos
+
+  const coincidencias = elementos
+    .map((elemento) => ({ elemento, posicion: normalizarTexto(elemento.nombre).indexOf(busqueda) }))
+    .filter(({ posicion }) => posicion >= 0)
+
+  return coincidencias
+    .sort((a, b) => a.posicion - b.posicion || a.elemento.nombre.localeCompare(b.elemento.nombre, 'es'))
+    .map(({ elemento }) => elemento)
+}
+
+/**
+ * Formatea en dólares como se escriben en el local: `$5,00`.
+ *
+ * Hace falta `narrowSymbol` porque en Venezuela la moneda local es el bolívar y,
+ * por defecto, Intl desambigua el dólar como "USD 5,00" — más largo y más raro
+ * de leer para quien usa la app, sobre todo en las columnas angostas de las
+ * tablas.
+ */
 export function formatearUSD(valor: number): string {
   return new Intl.NumberFormat('es-VE', {
     style: 'currency',
     currency: 'USD',
+    currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: 2,
   }).format(valor)
 }
