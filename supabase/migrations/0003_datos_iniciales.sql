@@ -196,13 +196,13 @@ from (values
 on conflict (nombre) do nothing;
 
 -- ---------------------------------------------------------------------------
--- Repartidores — EJEMPLO, reemplazar por los reales
+-- Repartidores
+--
+-- No se cargan de ejemplo a propósito: unos nombres inventados habría que
+-- acordarse de borrarlos antes de arrancar, y si se olvidan quedan mezclados
+-- con los reales en la liquidación. Se cargan los verdaderos desde
+-- Configuración -> Repartidores.
 -- ---------------------------------------------------------------------------
-
-insert into repartidores (nombre, telefono) values
-  ('Repartidor 1', null),
-  ('Repartidor 2', null)
-on conflict do nothing;
 
 -- ============================================================================
 -- Si algún día se decide dejarle margen al local, correr UNA de estas.

@@ -3,12 +3,11 @@
 
 \set ON_ERROR_STOP on
 
--- Un usuario para poder crear órdenes.
+-- Un usuario y un repartidor para poder crear órdenes.
 insert into auth.users (id, email) values ('11111111-1111-1111-1111-111111111111', 'cajera@local');
 update usuarios set activo = true, rol = 'admin' where id = '11111111-1111-1111-1111-111111111111';
-
-create or replace function zona_de(nombre_zona text) returns uuid
-language sql as $$ select id from zonas where nombre = nombre_zona $$;
+insert into repartidores (id, nombre)
+values ('22222222-2222-2222-2222-222222222222', 'Repartidor de prueba');
 
 create or replace function crear_orden(factura text, zona text, pedido numeric) returns uuid
 language plpgsql as $$
@@ -16,8 +15,9 @@ declare nueva uuid; z record;
 begin
   select * into z from zonas where nombre = zona;
   insert into ordenes (fecha_operativa, numero_factura, cliente_nombre, direccion, zona_id,
-    tarifa_cliente_usd, pago_repartidor_usd, monto_pedido_usd, tasa_bs_por_usd, creada_por)
+    repartidor_id, tarifa_cliente_usd, pago_repartidor_usd, monto_pedido_usd, tasa_bs_por_usd, creada_por)
   values ('2026-08-12', factura, 'Cliente', 'Una dirección', z.id,
+    '22222222-2222-2222-2222-222222222222',
     z.tarifa_cliente_usd, z.pago_repartidor_usd, pedido, 764.36,
     '11111111-1111-1111-1111-111111111111')
   returning id into nueva;
@@ -116,16 +116,36 @@ from v_ordenes_detalle where numero_factura = '45362';
 -- ---------------------------------------------------------------------------
 \echo '8. La liquidación agrupa las carreras por repartidor'
 -- ---------------------------------------------------------------------------
-do $$
-declare r uuid;
-begin
-  insert into repartidores (nombre) values ('Maxi') returning id into r;
-  update ordenes set repartidor_id = r where numero_factura in ('45361', '45362');
-end $$;
-
-select case when carreras = 2 and total_pagar_usd = 6.00 then 'OK'
+-- Quedan 3 órdenes vivas: Urdaneta 2 + Chacao 4 + Catia 4 = 10.
+--
+-- La cuarta (bloque 6) no cuenta: al capturarse la excepción, PL/pgSQL revierte
+-- todo lo hecho dentro de ese bloque, incluida la orden que lo abría.
+select case when carreras = 3 and total_pagar_usd = 10.00 then 'OK'
   else 'FALLA: carreras='||carreras||' pagar='||total_pagar_usd end as resultado
-from v_liquidacion_repartidores where repartidor = 'Maxi';
+from v_liquidacion_repartidores where repartidor = 'Repartidor de prueba';
+
+-- ---------------------------------------------------------------------------
+\echo '8b. Una orden sin dirección se acepta; sin repartidor, no'
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  insert into ordenes (fecha_operativa, numero_factura, cliente_nombre, zona_id, repartidor_id,
+    tarifa_cliente_usd, pago_repartidor_usd, monto_pedido_usd, tasa_bs_por_usd, creada_por)
+  select '2026-08-12', '45390', 'Mandó el location', id, '22222222-2222-2222-2222-222222222222',
+    tarifa_cliente_usd, pago_repartidor_usd, 10, 764.36, '11111111-1111-1111-1111-111111111111'
+  from zonas where nombre = 'Chacao';
+
+  begin
+    insert into ordenes (fecha_operativa, numero_factura, cliente_nombre, zona_id,
+      tarifa_cliente_usd, pago_repartidor_usd, monto_pedido_usd, tasa_bs_por_usd, creada_por)
+    select '2026-08-12', '45391', 'Sin repartidor', id,
+      tarifa_cliente_usd, pago_repartidor_usd, 10, 764.36, '11111111-1111-1111-1111-111111111111'
+    from zonas where nombre = 'Chacao';
+    raise exception 'FALLA: aceptó una orden sin repartidor';
+  exception when check_violation then
+    raise notice 'OK';
+  end;
+end $$;
 
 -- ---------------------------------------------------------------------------
 \echo '9. Con el día cerrado ya nadie puede tocar las órdenes'

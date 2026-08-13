@@ -230,6 +230,20 @@ Tres decisiones que conviene conocer antes de tocar el código:
 
 ---
 
+## Antes de entregárselo a las cajeras
+
+1. Correr `supabase/utilidades/limpiar_pruebas.sql` en el SQL Editor. Borra las
+   órdenes, pagos, cierres y tasas de prueba, y conserva las 104 zonas con sus
+   tarifas, los bancos, las cuentas del local y los usuarios.
+2. Borrar las capturas de prueba desde **Storage → capturas**.
+3. Cargar los **repartidores reales** en Configuración.
+4. Crear el usuario de cada cajera en Configuración → Usuarios, y anotar su
+   clave para entregársela.
+5. **Probar una orden real completa con captura adjunta**, y verificarla. Es lo
+   único que comprueba de punta a punta que la subida de imágenes funciona
+   contra el Supabase de producción.
+6. Pasarles [GUIA-CAJERA.md](GUIA-CAJERA.md) — cabe en una hoja.
+
 ## Puesta en marcha en el local
 
 Conviene correr **una semana en paralelo** con el proceso de papel antes de
