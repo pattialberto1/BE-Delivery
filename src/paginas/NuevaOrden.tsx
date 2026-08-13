@@ -260,7 +260,7 @@ export function NuevaOrden() {
           numero_factura: form.numero_factura.trim(),
           cliente_nombre: form.cliente_nombre.trim(),
           cliente_telefono: form.cliente_telefono.trim() || null,
-          direccion: form.direccion.trim(),
+          direccion: form.direccion.trim() || null,
           zona_id: zonaElegida.id,
           tarifa_cliente_usd: zonaElegida.tarifa_cliente_usd,
           pago_repartidor_usd: zonaElegida.pago_repartidor_usd,
@@ -413,9 +413,16 @@ export function NuevaOrden() {
                 />
               </Campo>
 
-              <Campo etiqueta="Dirección de entrega" requerido error={tocado ? erroresPorCampo.direccion : undefined}
-                className="sm:col-span-2">
-                <Entrada value={form.direccion} onChange={(e) => setForm({ ...form, direccion: e.target.value })} />
+              <Campo
+                etiqueta="Dirección o referencia"
+                ayuda="Opcional. Si mandó el location, puedes pegar aquí el enlace"
+                className="sm:col-span-2"
+              >
+                <Entrada
+                  value={form.direccion}
+                  onChange={(e) => setForm({ ...form, direccion: e.target.value })}
+                  placeholder="Opcional"
+                />
               </Campo>
 
               <Campo
@@ -432,12 +439,12 @@ export function NuevaOrden() {
                 />
               </Campo>
 
-              <Campo etiqueta="Repartidor" ayuda="Se puede asignar después">
+              <Campo etiqueta="Repartidor" requerido error={tocado ? erroresPorCampo.repartidor_id : undefined}>
                 <Seleccion
                   value={form.repartidor_id}
                   onChange={(e) => setForm({ ...form, repartidor_id: e.target.value })}
                 >
-                  <option value="">— Sin asignar —</option>
+                  <option value="">— Elegir —</option>
                   {repartidores
                     .filter((r) => r.activo)
                     .map((r) => (

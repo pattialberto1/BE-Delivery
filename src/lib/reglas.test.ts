@@ -190,13 +190,17 @@ describe('validarOrden', () => {
 
   it('exige los datos mínimos', () => {
     const problemas = validarOrden(
-      orden({ numero_factura: '', cliente_nombre: '', direccion: '', zona_id: '' }),
+      orden({ numero_factura: '', cliente_nombre: '', zona_id: '', repartidor_id: null }),
     )
     const campos = problemas.filter((p) => p.nivel === 'error').map((p) => p.campo)
     expect(campos).toContain('numero_factura')
     expect(campos).toContain('cliente_nombre')
-    expect(campos).toContain('direccion')
     expect(campos).toContain('zona_id')
+    expect(campos).toContain('repartidor_id')
+  })
+
+  it('no exige la dirección: muchos clientes mandan el location', () => {
+    expect(tieneErrores(validarOrden(orden({ direccion: '' })))).toBe(false)
   })
 
   it('bloquea si no hay tasa del día', () => {
@@ -250,10 +254,10 @@ describe('validarOrden', () => {
     expect(tieneErrores(problemas)).toBe(false)
   })
 
-  it('avisa de la orden sin repartidor sin bloquearla', () => {
+  it('no deja guardar sin repartidor: esa carrera no se le pagaría a nadie', () => {
     const problemas = validarOrden(orden({ repartidor_id: null }))
-    expect(problemas.find((p) => p.campo === 'repartidor_id')?.nivel).toBe('aviso')
-    expect(tieneErrores(problemas)).toBe(false)
+    expect(problemas.find((p) => p.campo === 'repartidor_id')?.nivel).toBe('error')
+    expect(tieneErrores(problemas)).toBe(true)
   })
 
   it('avisa cuando falta la captura pero deja guardar', () => {

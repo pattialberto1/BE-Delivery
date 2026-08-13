@@ -27,7 +27,7 @@ export function OrdenesDelDia() {
       return (
         o.numero_factura.toLowerCase().includes(texto) ||
         o.cliente_nombre.toLowerCase().includes(texto) ||
-        o.direccion.toLowerCase().includes(texto) ||
+        (o.direccion ?? '').toLowerCase().includes(texto) ||
         (o.repartidor ?? '').toLowerCase().includes(texto)
       )
     })
@@ -125,7 +125,7 @@ export function OrdenesDelDia() {
                       <td className="py-2 pr-3 font-bold tabular-nums">{o.numero_factura}</td>
                       <td className="py-2 pr-3">
                         <div className="font-semibold">{o.cliente_nombre}</div>
-                        <div className="text-xs text-slate-500">{o.direccion}</div>
+                        <div className="text-xs text-slate-500">{o.direccion || <span className="italic">sin dirección</span>}</div>
                       </td>
                       <td className="py-2 pr-3">{o.zona}</td>
                       <td className="py-2 pr-3 text-right tabular-nums">{formatearUSD(o.monto_pedido_usd)}</td>
@@ -147,7 +147,11 @@ export function OrdenesDelDia() {
                             onChange={(e) => void asignarRepartidor(o, e.target.value)}
                             className="min-h-9 w-auto text-sm"
                           >
-                            <option value="">— Sin asignar —</option>
+                            {/* Sin opción vacía: una orden ya cargada no puede
+                                quedarse sin repartidor. */}
+                            <option value="" disabled>
+                              — Elegir —
+                            </option>
                             {repartidores
                               .filter((r) => r.activo)
                               .map((r) => (

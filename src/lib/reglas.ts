@@ -286,9 +286,8 @@ export function validarOrden(datos: DatosOrdenAValidar): Problema[] {
     problemas.push({ campo: 'cliente_nombre', mensaje: 'Falta el nombre del cliente.', nivel: 'error' })
   }
 
-  if (!datos.direccion.trim()) {
-    problemas.push({ campo: 'direccion', mensaje: 'Falta la dirección de entrega.', nivel: 'error' })
-  }
+  // La dirección no se exige: muchos clientes mandan el location por WhatsApp y
+  // no escriben nada. Lo que define el cobro es la zona, y esa sí es obligatoria.
 
   if (!datos.zona_id) {
     problemas.push({ campo: 'zona_id', mensaje: 'Elige la zona: de ahí sale la tarifa del delivery.', nivel: 'error' })
@@ -311,13 +310,13 @@ export function validarOrden(datos: DatosOrdenAValidar): Problema[] {
     })
   }
 
-  // Sin repartidor la orden no se puede liquidar, pero se permite guardarla:
-  // muchas veces se asigna después, cuando el motorizado vuelve al local.
+  // Sin repartidor la carrera no se le paga a nadie y el cuadro de liquidación
+  // queda incompleto, así que se exige desde el momento de la carga.
   if (!datos.repartidor_id) {
     problemas.push({
       campo: 'repartidor_id',
-      mensaje: 'Sin repartidor asignado. Hay que asignarlo antes de cerrar el día.',
-      nivel: 'aviso',
+      mensaje: 'Falta asignar el repartidor.',
+      nivel: 'error',
     })
   }
 

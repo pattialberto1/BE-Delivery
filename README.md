@@ -20,7 +20,10 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
 ## Qué hace
 
 - **Alta de orden** desde la tablet: factura, cliente, zona (la tarifa aparece
-  sola), repartidor y uno o varios pagos con su captura adjunta.
+  sola), repartidor y uno o varios pagos con su captura adjunta. La **dirección
+  es opcional** — muchos clientes mandan el location por WhatsApp y no escriben
+  nada; lo que define el cobro es la zona. El **repartidor sí es obligatorio**:
+  una carrera sin asignar no se le paga a nadie.
 - **Búsqueda de zona por nombre**: el cuadro tiene 104 zonas, así que en vez de
   un desplegable interminable se teclea parte del nombre. Ignora tildes y
   mayúsculas — "penon" encuentra "Peñón".
@@ -102,6 +105,8 @@ como administrador activo, porque no hay todavía nadie que pueda darle acceso.
    - `0004_primer_usuario_admin.sql` — hace que el primer usuario que se
      registre quede como administrador
    - `0005_usuarios_sin_correo.sql` — permite entrar con nombre de usuario
+   - `0006_direccion_opcional_repartidor_obligatorio.sql` — la dirección deja de
+     ser obligatoria y el repartidor pasa a serlo
 
 > En **Authentication → Providers → Email**, desactivar **"Confirm email"**. Los
 > usuarios sin correo real usan direcciones internas que no reciben nada, así

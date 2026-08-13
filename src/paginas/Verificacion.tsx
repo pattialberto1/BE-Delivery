@@ -122,7 +122,7 @@ export function Verificacion() {
           <dl className="space-y-2 text-sm">
             <Renglon termino="Cliente" valor={actual.cliente_nombre} />
             <Renglon termino="Teléfono" valor={actual.cliente_telefono ?? '—'} />
-            <Renglon termino="Dirección" valor={actual.direccion} />
+            <Renglon termino="Dirección" valor={actual.direccion || "— mandó el location —"} />
             <Renglon termino="Zona" valor={`${actual.zona} · ${formatearUSD(actual.tarifa_cliente_usd)}`} />
             <Renglon termino="Repartidor" valor={actual.repartidor ?? '⚠ Sin asignar'} />
             <Renglon termino="Cargada por" valor={actual.cargada_por ?? '—'} />

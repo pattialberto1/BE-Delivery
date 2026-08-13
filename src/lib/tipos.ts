@@ -70,7 +70,7 @@ export interface Orden {
   numero_factura: string
   cliente_nombre: string
   cliente_telefono: string | null
-  direccion: string
+  direccion: string | null
   zona_id: string
   tarifa_cliente_usd: number
   pago_repartidor_usd: number
@@ -108,7 +108,7 @@ export interface OrdenDetalle {
   numero_factura: string
   cliente_nombre: string
   cliente_telefono: string | null
-  direccion: string
+  direccion: string | null
   zona: string
   tarifa_cliente_usd: number
   pago_repartidor_usd: number
