@@ -1,5 +1,8 @@
 export type RolUsuario = 'cajera' | 'admin' | 'dueno'
 export type EstadoOrden = 'pendiente' | 'verificada' | 'anulada'
+
+/** Cómo llega el pedido al cliente. */
+export type TipoOrden = 'delivery' | 'pickup'
 export type Moneda = 'BS' | 'USD'
 
 export type MetodoPago =
@@ -68,10 +71,11 @@ export interface Orden {
   id: string
   fecha_operativa: string
   numero_factura: string
+  tipo: TipoOrden
   cliente_nombre: string
   cliente_telefono: string | null
   direccion: string | null
-  zona_id: string
+  zona_id: string | null
   tarifa_cliente_usd: number
   pago_repartidor_usd: number
   repartidor_id: string | null
@@ -106,6 +110,7 @@ export interface OrdenDetalle {
   id: string
   fecha_operativa: string
   numero_factura: string
+  tipo: TipoOrden
   cliente_nombre: string
   cliente_telefono: string | null
   direccion: string | null
@@ -185,6 +190,14 @@ export const ETIQUETA_ROL: Record<RolUsuario, string> = {
   admin: 'Administradora',
   dueno: 'Dueño',
 }
+
+export const ETIQUETA_TIPO: Record<TipoOrden, string> = {
+  delivery: 'Delivery',
+  pickup: 'Retiro en el local',
+}
+
+/** Un pick up se paga al pasar por el local: en efectivo en dólares o pago móvil. */
+export const METODOS_PICKUP: MetodoPago[] = ['efectivo_usd', 'pago_movil']
 
 export const ETIQUETA_ESTADO: Record<EstadoOrden, string> = {
   pendiente: 'Pendiente',

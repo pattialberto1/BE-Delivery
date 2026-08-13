@@ -2,6 +2,7 @@ import writeXlsxFile, { type Cell, type Row } from 'write-excel-file/browser'
 import {
   ETIQUETA_ESTADO,
   ETIQUETA_METODO,
+  ETIQUETA_TIPO,
   type LiquidacionRepartidor,
   type MetodoPago,
   type OrdenDetalle,
@@ -138,14 +139,28 @@ export async function exportarCierre(
 
   // Por zona: dice de dónde viene el delivery y ayuda a revisar las tarifas.
   const porZona = new Map<string, { entregas: number; cobrado: number }>()
-  for (const orden of ordenes) {
+  for (const orden of ordenes.filter((o) => o.tipo !== 'pickup')) {
     const acumulado = porZona.get(orden.zona) ?? { entregas: 0, cobrado: 0 }
     acumulado.entregas += 1
     acumulado.cobrado += Number(orden.tarifa_cliente_usd)
     porZona.set(orden.zona, acumulado)
   }
 
-  filas.push(FILA_VACIA, seccion('Por zona', 4), encabezados(['Zona', 'Entregas', 'Delivery cobrado $']))
+  // Los retiros en el local se cuentan aparte: entran en la caja, pero no son
+  // una entrega y meterlos entre las zonas falsearía el reporte del delivery.
+  const pickups = ordenes.filter((o) => o.tipo === 'pickup')
+  if (pickups.length) {
+    filas.push(
+      FILA_VACIA,
+      seccion('Retiros en el local', 4),
+      [
+        texto(`${pickups.length} pedido${pickups.length === 1 ? '' : 's'} que el cliente vino a buscar`),
+        dinero(pickups.reduce((suma, o) => suma + Number(o.total_usd), 0), true),
+      ],
+    )
+  }
+
+  filas.push(FILA_VACIA, seccion('Por zona (solo delivery)', 4), encabezados(['Zona', 'Entregas', 'Delivery cobrado $']))
   for (const [zona, datos] of [...porZona.entries()].sort((a, b) => b[1].entregas - a[1].entregas)) {
     filas.push([texto(zona), entero(datos.entregas), dinero(datos.cobrado)])
   }
@@ -154,7 +169,7 @@ export async function exportarCierre(
   // cuando algo no cuadra.
   const saltos = detectarSaltosDeFactura(ordenes.map((o) => o.numero_factura))
   const descuadradas = ordenes.filter((o) => Math.abs(o.diferencia_usd) > TOLERANCIA_DESCUADRE_USD)
-  const sinRepartidor = ordenes.filter((o) => !o.repartidor_id)
+  const sinRepartidor = ordenes.filter((o) => !o.repartidor_id && o.tipo !== 'pickup')
 
   if (saltos.length || descuadradas.length || sinRepartidor.length) {
     filas.push(FILA_VACIA, seccion('Revisar', 4))
@@ -192,6 +207,7 @@ export async function exportarCierre(
 
 const ANCHOS_DETALLE = [
   { width: 11 },
+  { width: 16 },
   { width: 24 },
   { width: 16 },
   { width: 34 },
@@ -209,6 +225,7 @@ function hojaDetalle(ordenes: OrdenDetalle[]): Row[] {
   const filas: Row[] = [
     encabezados([
       'Factura',
+      'Tipo',
       'Cliente',
       'Teléfono',
       'Dirección',
@@ -227,13 +244,18 @@ function hojaDetalle(ordenes: OrdenDetalle[]): Row[] {
     const descuadrada = Math.abs(orden.diferencia_usd) > TOLERANCIA_DESCUADRE_USD
     filas.push([
       texto(orden.numero_factura),
+      texto(ETIQUETA_TIPO[orden.tipo]),
       texto(orden.cliente_nombre),
       texto(orden.cliente_telefono),
       texto(orden.direccion),
       texto(orden.zona),
       // "SIN ASIGNAR" en vez de una celda vacía: la fila que no se le paga a
       // nadie tiene que saltar a la vista.
-      orden.repartidor ? texto(orden.repartidor) : { value: 'SIN ASIGNAR', type: String, textColor: ROJO },
+      orden.repartidor
+        ? texto(orden.repartidor)
+        : orden.tipo === 'pickup'
+          ? texto('—')
+          : { value: 'SIN ASIGNAR', type: String, textColor: ROJO },
       dinero(orden.monto_pedido_usd),
       dinero(orden.tarifa_cliente_usd),
       dinero(orden.total_usd),
@@ -264,7 +286,7 @@ const ANCHOS_LIQUIDACION = [{ width: 14 }, { width: 12 }, { width: 26 }, { width
  * que se le está pagando, que es justo el reclamo que hoy no se puede resolver.
  */
 export async function exportarLiquidacion(desde: string, hasta: string, ordenes: OrdenDetalle[]) {
-  const conRepartidor = ordenes.filter((o) => o.repartidor_id && o.estado !== 'anulada')
+  const conRepartidor = ordenes.filter((o) => o.repartidor_id && o.estado !== 'anulada' && o.tipo !== 'pickup')
   const porRepartidor = new Map<string, OrdenDetalle[]>()
   for (const orden of conRepartidor) {
     const nombre = orden.repartidor ?? 'Sin nombre'
@@ -354,7 +376,7 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
   ])
 
   // Las que no se le pagan a nadie se listan aparte, para que no se pierdan.
-  const sinAsignar = ordenes.filter((o) => !o.repartidor_id && o.estado !== 'anulada')
+  const sinAsignar = ordenes.filter((o) => !o.repartidor_id && o.estado !== 'anulada' && o.tipo !== 'pickup')
   if (sinAsignar.length) {
     filas.push(FILA_VACIA, seccion('Carreras sin repartidor asignado', 5), encabezados(['Fecha', 'Factura', 'Cliente', 'Zona', 'Delivery $']))
     for (const orden of sinAsignar) {
@@ -451,7 +473,7 @@ export function liquidacionDesdeOrdenes(ordenes: OrdenDetalle[]): LiquidacionRep
   const indice = new Map<string, LiquidacionRepartidor>()
 
   for (const orden of ordenes) {
-    if (!orden.repartidor_id || orden.estado === 'anulada') continue
+    if (!orden.repartidor_id || orden.estado === 'anulada' || orden.tipo === 'pickup') continue
     const clave = `${orden.fecha_operativa}|${orden.repartidor_id}`
     let fila = indice.get(clave)
     if (!fila) {

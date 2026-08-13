@@ -18,7 +18,16 @@ bolívares por dólar). Se carga una sola vez y sirve para toda la jornada.
 
 Todo se hace en la pestaña **Nueva orden**, de arriba hacia abajo.
 
-### 1. Los datos del pedido
+### 1. Elige el tipo
+
+Arriba de todo hay dos botones:
+
+- **Delivery** — se lo llevamos al cliente.
+- **Retiro en el local** — el cliente pasa a buscarlo. No pide zona ni
+  repartidor, no se cobra delivery, y solo acepta **efectivo en dólares** o
+  **pago móvil**.
+
+### 2. Los datos del pedido
 
 | Campo | Qué va ahí |
 |---|---|
@@ -28,13 +37,13 @@ Todo se hace en la pestaña **Nueva orden**, de arriba hacia abajo.
 | **Monto del pedido** | En dólares, **sin** el delivery |
 | **Dirección o referencia** | **Opcional.** Si mandó el location, pega ahí el enlace |
 | **Zona** | Escribe parte del nombre y elígela de la lista |
-| **Repartidor** | Quién la lleva. **Obligatorio** |
+| **Repartidor** | Quién la lleva. Si todavía no se sabe, déjalo vacío y asígnalo después |
 
 **Sobre la zona:** no hay que buscar en una lista de 104. Escribe `chac` y sale
 Chacao; escribe `penon` y sale Peñón. No hace falta poner tildes. **La tarifa del
 delivery aparece sola** — nunca se teclea.
 
-### 2. El pago
+### 3. El pago
 
 Abajo, en **Pagos**, llena lo que muestra la captura que mandó el cliente:
 
@@ -47,7 +56,7 @@ Abajo, en **Pagos**, llena lo que muestra la captura que mandó el cliente:
 Si el cliente pagó **una parte en pago móvil y otra en efectivo**, dale a
 **"+ Agregar pago"** y carga los dos por separado.
 
-### 3. Revisa el cuadre y guarda
+### 4. Revisa el cuadre y guarda
 
 A la derecha, el recuadro **Cuadre** muestra en todo momento:
 
@@ -57,6 +66,21 @@ A la derecha, el recuadro **Cuadre** muestra en todo momento:
 - si **cuadra** o cuánto falta
 
 Cuando esté todo, dale a **Guardar orden**.
+
+---
+
+---
+
+## Asignar el repartidor
+
+Cuando el motorizado va a salir, entra a **Órdenes del día**:
+
+1. Marca la casilla de las órdenes que va a llevar — puedes marcar varias.
+2. Abajo aparece una barra: elige el repartidor y dale **Asignar**.
+
+Arriba de la pantalla siempre dice cuántas faltan por asignar, con un botón para
+ver solo esas. **No se puede cerrar el día si queda alguna sin asignar**, porque
+esa carrera no se le pagaría a nadie.
 
 ---
 

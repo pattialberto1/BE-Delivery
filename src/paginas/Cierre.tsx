@@ -64,6 +64,11 @@ export function Cierre() {
     void cargar()
   }, [ordenes])
 
+  // Los pick up entran en la caja pero no son delivery: no llevan tarifa ni
+  // repartidor, así que no pueden contarse como carreras.
+  const deliveries = useMemo(() => ordenes.filter((o) => o.tipo !== 'pickup'), [ordenes])
+  const pickups = useMemo(() => ordenes.filter((o) => o.tipo === 'pickup'), [ordenes])
+
   const totales = useMemo(() => {
     const ventas = ordenes.reduce((s, o) => s + Number(o.monto_pedido_usd), 0)
     const cobrado = ordenes.reduce((s, o) => s + Number(o.tarifa_cliente_usd), 0)
@@ -86,7 +91,7 @@ export function Cierre() {
   const tasaDelDia = ordenes.length ? Number(ordenes[0].tasa_bs_por_usd) : 0
 
   const pendientes = ordenes.filter((o) => o.estado === 'pendiente')
-  const sinRepartidor = ordenes.filter((o) => !o.repartidor_id)
+  const sinRepartidor = deliveries.filter((o) => !o.repartidor_id)
   const descuadradas = ordenes.filter((o) => Math.abs(o.diferencia_usd) > TOLERANCIA_DESCUADRE_USD)
   const saltos = useMemo(() => detectarSaltosDeFactura(ordenes.map((o) => o.numero_factura)), [ordenes])
 
@@ -156,7 +161,11 @@ export function Cierre() {
         }
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Dato etiqueta="Órdenes" valor={totales.ordenes} />
+          <Dato
+            etiqueta="Órdenes"
+            valor={totales.ordenes}
+            detalle={pickups.length ? `${deliveries.length} delivery · ${pickups.length} retiro en el local` : undefined}
+          />
           <Dato etiqueta="Ventas (sin delivery)" valor={formatearUSD(totales.ventas_usd)} />
           <Dato etiqueta="Total facturado" valor={formatearUSD(totales.total_usd)} />
           <Dato

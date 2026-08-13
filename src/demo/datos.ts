@@ -91,6 +91,7 @@ export const CAPTURA_FALSA = `data:image/svg+xml;utf8,${encodeURIComponent(`
 
 interface SemillaOrden {
   factura: string
+  tipo?: 'delivery' | 'pickup'
   cliente: string
   telefono: string
   direccion: string
@@ -207,6 +208,19 @@ const SEMILLAS: SemillaOrden[] = [
     cuenta: 'c-bb',
     verificada: false,
   },
+  // Retiro en el local: sin zona, sin delivery y sin repartidor.
+  {
+    factura: '45370',
+    tipo: 'pickup',
+    cliente: 'Daniela Ruiz',
+    telefono: '0412-3334455',
+    direccion: '',
+    zona: '',
+    repartidor: null,
+    pedido: 15,
+    divisaUsd: 15,
+    verificada: false,
+  },
   // Pago mixto: parte en efectivo en dólares (la columna DIVISA del papel).
   {
     factura: '45369',
@@ -241,20 +255,23 @@ export function cargarSemillas(zonasPorNombre: Map<string, { id: string; tarifa:
   const pagos: Pago[] = []
 
   SEMILLAS.forEach((semilla, i) => {
+    const esPickup = semilla.tipo === 'pickup'
     const zona = zonasPorNombre.get(semilla.zona)
-    if (!zona) return
+    // Un pick up no tiene zona; el delivery sin zona conocida se descarta.
+    if (!esPickup && !zona) return
 
     const id = `o-${semilla.factura}`
     ordenes.push({
       id,
       fecha_operativa: HOY,
       numero_factura: semilla.factura,
+      tipo: semilla.tipo ?? 'delivery',
       cliente_nombre: semilla.cliente,
       cliente_telefono: semilla.telefono,
       direccion: semilla.direccion,
-      zona_id: zona.id,
-      tarifa_cliente_usd: zona.tarifa,
-      pago_repartidor_usd: zona.pago,
+      zona_id: esPickup ? null : zona!.id,
+      tarifa_cliente_usd: esPickup ? 0 : zona!.tarifa,
+      pago_repartidor_usd: esPickup ? 0 : zona!.pago,
       repartidor_id: semilla.repartidor,
       monto_pedido_usd: semilla.pedido,
       tasa_bs_por_usd: TASA_DEMO,

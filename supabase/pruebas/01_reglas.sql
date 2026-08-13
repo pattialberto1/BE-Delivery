@@ -125,27 +125,50 @@ select case when carreras = 3 and total_pagar_usd = 10.00 then 'OK'
 from v_liquidacion_repartidores where repartidor = 'Repartidor de prueba';
 
 -- ---------------------------------------------------------------------------
-\echo '8b. Una orden sin dirección se acepta; sin repartidor, no'
+\echo '8b. Se acepta sin dirección y sin repartidor: eso se asigna después'
+-- ---------------------------------------------------------------------------
+insert into ordenes (fecha_operativa, numero_factura, cliente_nombre, zona_id,
+  tarifa_cliente_usd, pago_repartidor_usd, monto_pedido_usd, tasa_bs_por_usd, creada_por)
+select '2026-08-12', '45390', 'Mandó el location', id,
+  tarifa_cliente_usd, pago_repartidor_usd, 10, 764.36, '11111111-1111-1111-1111-111111111111'
+from zonas where nombre = 'Chacao';
+
+select case when direccion is null and repartidor_id is null then 'OK' else 'FALLA' end as resultado
+from ordenes where numero_factura = '45390';
+
+-- ---------------------------------------------------------------------------
+\echo '8c. Un retiro en el local no lleva zona, ni tarifa, ni repartidor'
+-- ---------------------------------------------------------------------------
+insert into ordenes (fecha_operativa, numero_factura, tipo, cliente_nombre,
+  tarifa_cliente_usd, pago_repartidor_usd, monto_pedido_usd, tasa_bs_por_usd, creada_por)
+values ('2026-08-12', '45392', 'pickup', 'Pasa a buscarlo',
+  0, 0, 15, 764.36, '11111111-1111-1111-1111-111111111111');
+
+select case when zona = 'Retiro en el local' and total_usd = 15 then 'OK'
+  else 'FALLA: zona='||zona||' total='||total_usd end as resultado
+from v_ordenes_detalle where numero_factura = '45392';
+
+-- ---------------------------------------------------------------------------
+\echo '8d. Un retiro con tarifa de delivery se rechaza'
 -- ---------------------------------------------------------------------------
 do $$
 begin
-  insert into ordenes (fecha_operativa, numero_factura, cliente_nombre, zona_id, repartidor_id,
+  insert into ordenes (fecha_operativa, numero_factura, tipo, cliente_nombre, zona_id,
     tarifa_cliente_usd, pago_repartidor_usd, monto_pedido_usd, tasa_bs_por_usd, creada_por)
-  select '2026-08-12', '45390', 'Mandó el location', id, '22222222-2222-2222-2222-222222222222',
-    tarifa_cliente_usd, pago_repartidor_usd, 10, 764.36, '11111111-1111-1111-1111-111111111111'
+  select '2026-08-12', '45393', 'pickup', 'Cliente', id,
+    4, 4, 15, 764.36, '11111111-1111-1111-1111-111111111111'
   from zonas where nombre = 'Chacao';
-
-  begin
-    insert into ordenes (fecha_operativa, numero_factura, cliente_nombre, zona_id,
-      tarifa_cliente_usd, pago_repartidor_usd, monto_pedido_usd, tasa_bs_por_usd, creada_por)
-    select '2026-08-12', '45391', 'Sin repartidor', id,
-      tarifa_cliente_usd, pago_repartidor_usd, 10, 764.36, '11111111-1111-1111-1111-111111111111'
-    from zonas where nombre = 'Chacao';
-    raise exception 'FALLA: aceptó una orden sin repartidor';
-  exception when check_violation then
-    raise notice 'OK';
-  end;
+  raise exception 'FALLA: un pick up aceptó zona y tarifa de delivery';
+exception when check_violation then
+  raise notice 'OK';
 end $$;
+
+-- ---------------------------------------------------------------------------
+\echo '8e. El retiro no entra en la liquidación de nadie'
+-- ---------------------------------------------------------------------------
+select case when coalesce(sum(carreras), 0) = 3 then 'OK'
+  else 'FALLA: el retiro se coló, carreras='||sum(carreras) end as resultado
+from v_liquidacion_repartidores;
 
 -- ---------------------------------------------------------------------------
 \echo '9. Con el día cerrado ya nadie puede tocar las órdenes'

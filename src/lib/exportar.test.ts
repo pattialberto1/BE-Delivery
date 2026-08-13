@@ -14,6 +14,7 @@ function orden(parcial: Partial<OrdenDetalle> = {}): OrdenDetalle {
     id: Math.random().toString(36).slice(2),
     fecha_operativa: '2026-08-12',
     numero_factura: '1001',
+    tipo: 'delivery',
     cliente_nombre: 'Cliente',
     cliente_telefono: null,
     direccion: 'Una dirección',

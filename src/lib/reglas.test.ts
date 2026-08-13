@@ -39,6 +39,7 @@ function pago(parcial: Partial<BorradorPago> = {}): BorradorPago {
 
 function orden(parcial: Partial<DatosOrdenAValidar> = {}): DatosOrdenAValidar {
   return {
+    tipo: 'delivery',
     numero_factura: '1001',
     cliente_nombre: 'María',
     direccion: 'Av. Urdaneta, edificio X',
@@ -190,13 +191,12 @@ describe('validarOrden', () => {
 
   it('exige los datos mínimos', () => {
     const problemas = validarOrden(
-      orden({ numero_factura: '', cliente_nombre: '', zona_id: '', repartidor_id: null }),
+      orden({ numero_factura: '', cliente_nombre: '', zona_id: '' }),
     )
     const campos = problemas.filter((p) => p.nivel === 'error').map((p) => p.campo)
     expect(campos).toContain('numero_factura')
     expect(campos).toContain('cliente_nombre')
     expect(campos).toContain('zona_id')
-    expect(campos).toContain('repartidor_id')
   })
 
   it('no exige la dirección: muchos clientes mandan el location', () => {
@@ -254,10 +254,12 @@ describe('validarOrden', () => {
     expect(tieneErrores(problemas)).toBe(false)
   })
 
-  it('no deja guardar sin repartidor: esa carrera no se le pagaría a nadie', () => {
+  it('deja guardar sin repartidor, porque al armar la comanda no se sabe quién la lleva', () => {
+    // Se avisa, pero no tranca: el sistema lo exige al cerrar el día, que es
+    // cuando de verdad importa.
     const problemas = validarOrden(orden({ repartidor_id: null }))
-    expect(problemas.find((p) => p.campo === 'repartidor_id')?.nivel).toBe('error')
-    expect(tieneErrores(problemas)).toBe(true)
+    expect(problemas.find((p) => p.campo === 'repartidor_id')?.nivel).toBe('aviso')
+    expect(tieneErrores(problemas)).toBe(false)
   })
 
   it('avisa cuando falta la captura pero deja guardar', () => {
@@ -349,6 +351,48 @@ describe('buscarPorNombre', () => {
 
   it('devuelve vacío si nada coincide', () => {
     expect(buscarPorNombre(zonas, 'zzz')).toEqual([])
+  })
+})
+
+describe('retiro en el local (pick up)', () => {
+  function pickup(parcial: Partial<DatosOrdenAValidar> = {}): DatosOrdenAValidar {
+    return orden({
+      tipo: 'pickup',
+      zona_id: '',
+      repartidor_id: null,
+      tarifa_cliente_usd: 0,
+      direccion: '',
+      monto_pedido_usd: '12',
+      pagos: [pago({ metodo: 'efectivo_usd', moneda: 'USD', monto: '12', referencia: '', cuenta_id: null })],
+      ...parcial,
+    })
+  }
+
+  it('no pide zona ni repartidor', () => {
+    expect(tieneErrores(validarOrden(pickup()))).toBe(false)
+  })
+
+  it('no cobra delivery aunque venga una tarifa', () => {
+    // Si alguien cambia de delivery a pick up con la zona ya elegida, la
+    // tarifa que quedó en el formulario no se puede colar en el total.
+    const resumen = calcularResumen(pickup({ tarifa_cliente_usd: 4 }))
+    expect(resumen.tarifaDelivery).toBe(0)
+    expect(resumen.total).toBe(12)
+  })
+
+  it('sigue exigiendo cliente, factura y pago', () => {
+    const problemas = validarOrden(pickup({ numero_factura: '', cliente_nombre: '', pagos: [] }))
+    const campos = problemas.filter((p) => p.nivel === 'error').map((p) => p.campo)
+    expect(campos).toContain('numero_factura')
+    expect(campos).toContain('cliente_nombre')
+    expect(campos).toContain('pagos')
+  })
+
+  it('acepta el pago móvil, que es la otra forma admitida', () => {
+    const problemas = validarOrden(
+      pickup({ pagos: [pago({ metodo: 'pago_movil', moneda: 'BS', monto: '480' })] }),
+    )
+    expect(tieneErrores(problemas)).toBe(false)
   })
 })
 

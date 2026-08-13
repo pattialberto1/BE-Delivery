@@ -7,7 +7,7 @@
  * todavía está en línea y el error se puede corregir.
  */
 
-import type { BorradorPago, MetodoPago, Moneda } from './tipos'
+import type { BorradorPago, MetodoPago, Moneda, TipoOrden } from './tipos'
 
 /** Métodos que no dejan rastro de referencia que se pueda cotejar después. */
 const METODOS_EFECTIVO: MetodoPago[] = ['efectivo_bs', 'efectivo_usd']
@@ -137,6 +137,7 @@ export interface Problema {
 }
 
 export interface DatosOrdenAValidar {
+  tipo: TipoOrden
   numero_factura: string
   cliente_nombre: string
   direccion: string
@@ -255,13 +256,15 @@ export interface ResumenOrden {
 export function calcularResumen(datos: DatosOrdenAValidar): ResumenOrden {
   const montoPedido = aNumero(datos.monto_pedido_usd)
   const pedidoValido = Number.isFinite(montoPedido) ? montoPedido : 0
-  const total = pedidoValido + datos.tarifa_cliente_usd
+  // El retiro en el local no paga delivery, sin importar lo que traiga el campo.
+  const delivery = datos.tipo === 'pickup' ? 0 : datos.tarifa_cliente_usd
+  const total = pedidoValido + delivery
   const pagado = totalPagadoUSD(datos.pagos, datos.tasa_bs_por_usd)
   const diferencia = pagado - total
 
   return {
     montoPedido: pedidoValido,
-    tarifaDelivery: datos.tarifa_cliente_usd,
+    tarifaDelivery: delivery,
     total,
     pagado,
     diferencia,
@@ -289,7 +292,8 @@ export function validarOrden(datos: DatosOrdenAValidar): Problema[] {
   // La dirección no se exige: muchos clientes mandan el location por WhatsApp y
   // no escriben nada. Lo que define el cobro es la zona, y esa sí es obligatoria.
 
-  if (!datos.zona_id) {
+  // Un retiro en el local no tiene zona ni delivery que cobrar.
+  if (datos.tipo === 'delivery' && !datos.zona_id) {
     problemas.push({ campo: 'zona_id', mensaje: 'Elige la zona: de ahí sale la tarifa del delivery.', nivel: 'error' })
   }
 
@@ -310,13 +314,15 @@ export function validarOrden(datos: DatosOrdenAValidar): Problema[] {
     })
   }
 
-  // Sin repartidor la carrera no se le paga a nadie y el cuadro de liquidación
-  // queda incompleto, así que se exige desde el momento de la carga.
-  if (!datos.repartidor_id) {
+  // Cuando se está armando la comanda todavía no se sabe quién la va a llevar,
+  // así que no se puede exigir aquí: trancaría la carga con el cliente en
+  // línea. Se avisa, y el sistema no deja cerrar el día con órdenes sin
+  // asignar, que es donde sí importa. Un pick up no lleva repartidor nunca.
+  if (datos.tipo === 'delivery' && !datos.repartidor_id) {
     problemas.push({
       campo: 'repartidor_id',
-      mensaje: 'Falta asignar el repartidor.',
-      nivel: 'error',
+      mensaje: 'Sin repartidor. Asígnalo desde Órdenes del día cuando se sepa quién la lleva.',
+      nivel: 'aviso',
     })
   }
 

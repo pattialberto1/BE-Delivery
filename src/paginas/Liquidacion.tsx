@@ -25,7 +25,12 @@ export function Liquidacion() {
 
   const porDia = useMemo(() => liquidacionDesdeOrdenes(ordenes), [ordenes])
   const consolidado = useMemo(() => consolidarLiquidacion(porDia), [porDia])
-  const sinAsignar = useMemo(() => ordenes.filter((o) => !o.repartidor_id), [ordenes])
+  // Los retiros en el local no llevan repartidor por definición: contarlos aquí
+  // haría creer que falta asignarlos.
+  const sinAsignar = useMemo(
+    () => ordenes.filter((o) => !o.repartidor_id && o.tipo !== 'pickup'),
+    [ordenes],
+  )
 
   const totalPagar = consolidado.reduce((s, f) => s + f.total_pagar_usd, 0)
   const totalCobrado = consolidado.reduce((s, f) => s + f.total_cobrado_usd, 0)

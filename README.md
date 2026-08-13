@@ -22,8 +22,16 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
 - **Alta de orden** desde la tablet: factura, cliente, zona (la tarifa aparece
   sola), repartidor y uno o varios pagos con su captura adjunta. La **dirección
   es opcional** — muchos clientes mandan el location por WhatsApp y no escriben
-  nada; lo que define el cobro es la zona. El **repartidor sí es obligatorio**:
-  una carrera sin asignar no se le paga a nadie.
+  nada; lo que define el cobro es la zona.
+- **El repartidor se asigna después**, porque al armar la comanda todavía no se
+  sabe quién la va a llevar. Se pueden asignar **varias de una vez** cuando el
+  motorizado sale con tres, y el sistema no deja cerrar la jornada mientras
+  quede alguna sin asignar.
+- **Retiros en el local (pick up)**: el cliente pide por teléfono y pasa a
+  buscarlo. Sin zona, sin tarifa de delivery y sin repartidor; se paga en
+  efectivo en dólares o por pago móvil. **Entran en el cierre de caja** —la plata
+  la recibe la misma cajera— pero **no cuentan como delivery**: no aparecen en la
+  liquidación de repartidores ni en el desglose por zona.
 - **Búsqueda de zona por nombre**: el cuadro tiene 104 zonas, así que en vez de
   un desplegable interminable se teclea parte del nombre. Ignora tildes y
   mayúsculas — "penon" encuentra "Peñón".
@@ -106,7 +114,10 @@ como administrador activo, porque no hay todavía nadie que pueda darle acceso.
      registre quede como administrador
    - `0005_usuarios_sin_correo.sql` — permite entrar con nombre de usuario
    - `0006_direccion_opcional_repartidor_obligatorio.sql` — la dirección deja de
-     ser obligatoria y el repartidor pasa a serlo
+     ser obligatoria
+   - `0007_repartidor_se_asigna_despues.sql` — el repartidor se asigna después
+     de cargar la orden
+   - `0008_pickup.sql` — pedidos para retirar en el local
 
 > En **Authentication → Providers → Email**, desactivar **"Confirm email"**. Los
 > usuarios sin correo real usan direcciones internas que no reciben nada, así

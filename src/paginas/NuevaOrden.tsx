@@ -15,7 +15,7 @@ import {
   validarOrden,
   type DatosOrdenAValidar,
 } from '../lib/reglas'
-import type { BorradorPago, Moneda } from '../lib/tipos'
+import { ETIQUETA_TIPO, METODOS_PICKUP, type BorradorPago, type Moneda, type TipoOrden } from '../lib/tipos'
 import { Alerta, Boton, Campo, Dato, Entrada, Seleccion, Tarjeta, AreaTexto } from '../componentes/UI'
 import { FilaPago, type Choque } from '../componentes/FilaPago'
 import { SelectorZona } from '../componentes/SelectorZona'
@@ -37,6 +37,7 @@ function pagoVacio(): BorradorPago {
 
 function formularioVacio() {
   return {
+    tipo: 'delivery' as TipoOrden,
     numero_factura: '',
     cliente_nombre: '',
     cliente_telefono: '',
@@ -104,13 +105,14 @@ export function NuevaOrden() {
 
   const datosAValidar: DatosOrdenAValidar = useMemo(
     () => ({
+      tipo: form.tipo,
       numero_factura: form.numero_factura,
       cliente_nombre: form.cliente_nombre,
       direccion: form.direccion,
       zona_id: form.zona_id,
       repartidor_id: form.repartidor_id || null,
       monto_pedido_usd: form.monto_pedido_usd,
-      tarifa_cliente_usd: zonaElegida?.tarifa_cliente_usd ?? 0,
+      tarifa_cliente_usd: form.tipo === 'pickup' ? 0 : (zonaElegida?.tarifa_cliente_usd ?? 0),
       tasa_bs_por_usd: tasa ?? 0,
       pagos,
     }),
@@ -241,9 +243,12 @@ export function NuevaOrden() {
     setTocado(true)
     setErrorGuardado(null)
     setExito(null)
-    if (bloqueado || !usuario || !zonaElegida || !tasa) return
+    // El pick up no necesita zona; el delivery sí.
+    if (bloqueado || !usuario || !tasa) return
+    if (form.tipo === 'delivery' && !zonaElegida) return
 
     setGuardando(true)
+    const esPickup = form.tipo === 'pickup'
     let ordenCreada: string | null = null
 
     try {
@@ -261,10 +266,11 @@ export function NuevaOrden() {
           cliente_nombre: form.cliente_nombre.trim(),
           cliente_telefono: form.cliente_telefono.trim() || null,
           direccion: form.direccion.trim() || null,
-          zona_id: zonaElegida.id,
-          tarifa_cliente_usd: zonaElegida.tarifa_cliente_usd,
-          pago_repartidor_usd: zonaElegida.pago_repartidor_usd,
-          repartidor_id: form.repartidor_id || null,
+          tipo: form.tipo,
+          zona_id: esPickup ? null : zonaElegida!.id,
+          tarifa_cliente_usd: esPickup ? 0 : zonaElegida!.tarifa_cliente_usd,
+          pago_repartidor_usd: esPickup ? 0 : zonaElegida!.pago_repartidor_usd,
+          repartidor_id: esPickup ? null : form.repartidor_id || null,
           monto_pedido_usd: aNumero(form.monto_pedido_usd),
           tasa_bs_por_usd: tasa,
           notas: form.notas.trim() || null,
@@ -359,6 +365,37 @@ export function NuevaOrden() {
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-4">
           <Tarjeta titulo="Datos del pedido">
+            {/* El tipo va primero porque cambia el resto del formulario. */}
+            <div className="mb-4 flex gap-2">
+              {(['delivery', 'pickup'] as TipoOrden[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => {
+                    setForm({ ...form, tipo: t })
+                    // Si había un pago con una forma que el pick up no admite,
+                    // se reencauza en vez de quedar en un estado imposible.
+                    if (t === 'pickup') {
+                      setPagos((previos) =>
+                        previos.map((pago) =>
+                          METODOS_PICKUP.includes(pago.metodo)
+                            ? pago
+                            : { ...pago, metodo: 'efectivo_usd', moneda: monedaDeMetodo('efectivo_usd'), cuenta_id: null, banco_id: null, referencia: '' },
+                        ),
+                      )
+                    }
+                  }}
+                  className={`min-h-12 flex-1 rounded-lg border-2 px-4 font-bold transition-colors ${
+                    form.tipo === t
+                      ? 'border-marca-600 bg-marca-50 text-marca-800'
+                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {ETIQUETA_TIPO[t]}
+                </button>
+              ))}
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <Campo
                 etiqueta="N° de factura"
@@ -413,6 +450,7 @@ export function NuevaOrden() {
                 />
               </Campo>
 
+              {form.tipo === 'delivery' && (
               <Campo
                 etiqueta="Dirección o referencia"
                 ayuda="Opcional. Si mandó el location, puedes pegar aquí el enlace"
@@ -424,7 +462,9 @@ export function NuevaOrden() {
                   placeholder="Opcional"
                 />
               </Campo>
+              )}
 
+              {form.tipo === 'delivery' && (
               <Campo
                 etiqueta="Zona"
                 requerido
@@ -438,22 +478,25 @@ export function NuevaOrden() {
                   error={tocado ? erroresPorCampo.zona_id : undefined}
                 />
               </Campo>
+              )}
 
-              <Campo etiqueta="Repartidor" requerido error={tocado ? erroresPorCampo.repartidor_id : undefined}>
-                <Seleccion
-                  value={form.repartidor_id}
-                  onChange={(e) => setForm({ ...form, repartidor_id: e.target.value })}
-                >
-                  <option value="">— Elegir —</option>
-                  {repartidores
-                    .filter((r) => r.activo)
-                    .map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.nombre}
-                      </option>
-                    ))}
-                </Seleccion>
-              </Campo>
+              {form.tipo === 'delivery' && (
+                <Campo etiqueta="Repartidor" ayuda="Se puede asignar después, cuando se sepa quién la lleva">
+                  <Seleccion
+                    value={form.repartidor_id}
+                    onChange={(e) => setForm({ ...form, repartidor_id: e.target.value })}
+                  >
+                    <option value="">— Todavía no se sabe —</option>
+                    {repartidores
+                      .filter((r) => r.activo)
+                      .map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.nombre}
+                        </option>
+                      ))}
+                  </Seleccion>
+                </Campo>
+              )}
 
               <Campo etiqueta="Notas" className="sm:col-span-2">
                 <AreaTexto
@@ -479,6 +522,7 @@ export function NuevaOrden() {
                   key={pago.clave}
                   pago={pago}
                   indice={i}
+                  metodos={form.tipo === 'pickup' ? METODOS_PICKUP : undefined}
                   cuentas={cuentas}
                   bancos={bancos}
                   errores={tocado ? erroresPorCampo : {}}

@@ -11,7 +11,7 @@ import {
 } from '../lib/reglas'
 import { Boton, Campo, Entrada, Insignia, Seleccion } from './UI'
 
-const METODOS: MetodoPago[] = [
+const TODOS_LOS_METODOS: MetodoPago[] = [
   'pago_movil',
   'transferencia',
   'efectivo_bs',
@@ -33,6 +33,8 @@ export interface Choque {
 interface Props {
   pago: BorradorPago
   indice: number
+  /** Formas de pago admitidas. Un retiro en el local solo acepta dos. */
+  metodos?: MetodoPago[]
   cuentas: Cuenta[]
   bancos: Banco[]
   errores: Record<string, string>
@@ -41,7 +43,17 @@ interface Props {
   onEliminar: () => void
 }
 
-export function FilaPago({ pago, indice, cuentas, bancos, errores, choque, onCambiar, onEliminar }: Props) {
+export function FilaPago({
+  pago,
+  indice,
+  metodos = TODOS_LOS_METODOS,
+  cuentas,
+  bancos,
+  errores,
+  choque,
+  onCambiar,
+  onEliminar,
+}: Props) {
   const [previsualizacion, setPrevisualizacion] = useState<string | null>(null)
 
   // La miniatura de la captura sale de un blob local; hay que liberarlo al
@@ -88,7 +100,7 @@ export function FilaPago({ pago, indice, cuentas, bancos, errores, choque, onCam
               })
             }}
           >
-            {METODOS.map((m) => (
+            {metodos.map((m) => (
               <option key={m} value={m}>
                 {ETIQUETA_METODO[m]}
               </option>
