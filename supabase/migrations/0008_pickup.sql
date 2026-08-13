@@ -53,7 +53,7 @@ select
   o.cliente_telefono,
   o.direccion,
   -- Los pick up no tienen zona; se nombran para que el reporte se lea solo.
-  coalesce(z.nombre, 'Retiro en el local') as zona,
+  coalesce(z.nombre, 'Pick Up') as zona,
   o.tarifa_cliente_usd,
   o.pago_repartidor_usd,
   o.tarifa_cliente_usd - o.pago_repartidor_usd as margen_delivery_usd,

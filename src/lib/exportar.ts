@@ -146,13 +146,13 @@ export async function exportarCierre(
     porZona.set(orden.zona, acumulado)
   }
 
-  // Los retiros en el local se cuentan aparte: entran en la caja, pero no son
+  // Los pick up se cuentan aparte: entran en la caja, pero no son
   // una entrega y meterlos entre las zonas falsearía el reporte del delivery.
   const pickups = ordenes.filter((o) => o.tipo === 'pickup')
   if (pickups.length) {
     filas.push(
       FILA_VACIA,
-      seccion('Retiros en el local', 4),
+      seccion('Pick Up', 4),
       [
         texto(`${pickups.length} pedido${pickups.length === 1 ? '' : 's'} que el cliente vino a buscar`),
         dinero(pickups.reduce((suma, o) => suma + Number(o.total_usd), 0), true),

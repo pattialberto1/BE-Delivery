@@ -354,7 +354,7 @@ describe('buscarPorNombre', () => {
   })
 })
 
-describe('retiro en el local (pick up)', () => {
+describe('pick up (pick up)', () => {
   function pickup(parcial: Partial<DatosOrdenAValidar> = {}): DatosOrdenAValidar {
     return orden({
       tipo: 'pickup',

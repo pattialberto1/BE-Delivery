@@ -137,14 +137,14 @@ select case when direccion is null and repartidor_id is null then 'OK' else 'FAL
 from ordenes where numero_factura = '45390';
 
 -- ---------------------------------------------------------------------------
-\echo '8c. Un retiro en el local no lleva zona, ni tarifa, ni repartidor'
+\echo '8c. Un pick up no lleva zona, ni tarifa, ni repartidor'
 -- ---------------------------------------------------------------------------
 insert into ordenes (fecha_operativa, numero_factura, tipo, cliente_nombre,
   tarifa_cliente_usd, pago_repartidor_usd, monto_pedido_usd, tasa_bs_por_usd, creada_por)
 values ('2026-08-12', '45392', 'pickup', 'Pasa a buscarlo',
   0, 0, 15, 764.36, '11111111-1111-1111-1111-111111111111');
 
-select case when zona = 'Retiro en el local' and total_usd = 15 then 'OK'
+select case when zona = 'Pick Up' and total_usd = 15 then 'OK'
   else 'FALLA: zona='||zona||' total='||total_usd end as resultado
 from v_ordenes_detalle where numero_factura = '45392';
 

@@ -164,7 +164,7 @@ export function Cierre() {
           <Dato
             etiqueta="Órdenes"
             valor={totales.ordenes}
-            detalle={pickups.length ? `${deliveries.length} delivery · ${pickups.length} retiro en el local` : undefined}
+            detalle={pickups.length ? `${deliveries.length} delivery · ${pickups.length} pick up` : undefined}
           />
           <Dato etiqueta="Ventas (sin delivery)" valor={formatearUSD(totales.ventas_usd)} />
           <Dato etiqueta="Total facturado" valor={formatearUSD(totales.total_usd)} />

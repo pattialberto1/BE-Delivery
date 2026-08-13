@@ -92,7 +92,7 @@ function vistaOrdenesDetalle(): OrdenDetalle[] {
         cliente_nombre: o.cliente_nombre,
         cliente_telefono: o.cliente_telefono,
         direccion: o.direccion,
-        zona: zona?.nombre ?? 'Retiro en el local',
+        zona: zona?.nombre ?? 'Pick Up',
         tarifa_cliente_usd: Number(o.tarifa_cliente_usd),
         pago_repartidor_usd: Number(o.pago_repartidor_usd),
         margen_delivery_usd: Number(o.tarifa_cliente_usd) - Number(o.pago_repartidor_usd),

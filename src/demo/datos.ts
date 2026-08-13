@@ -208,7 +208,7 @@ const SEMILLAS: SemillaOrden[] = [
     cuenta: 'c-bb',
     verificada: false,
   },
-  // Retiro en el local: sin zona, sin delivery y sin repartidor.
+  // Pick Up: sin zona, sin delivery y sin repartidor.
   {
     factura: '45370',
     tipo: 'pickup',

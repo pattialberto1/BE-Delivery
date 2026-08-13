@@ -193,7 +193,7 @@ export const ETIQUETA_ROL: Record<RolUsuario, string> = {
 
 export const ETIQUETA_TIPO: Record<TipoOrden, string> = {
   delivery: 'Delivery',
-  pickup: 'Retiro en el local',
+  pickup: 'Pick Up',
 }
 
 /** Un pick up se paga al pasar por el local: en efectivo en dólares o pago móvil. */

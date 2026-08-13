@@ -256,7 +256,7 @@ export interface ResumenOrden {
 export function calcularResumen(datos: DatosOrdenAValidar): ResumenOrden {
   const montoPedido = aNumero(datos.monto_pedido_usd)
   const pedidoValido = Number.isFinite(montoPedido) ? montoPedido : 0
-  // El retiro en el local no paga delivery, sin importar lo que traiga el campo.
+  // El pick up no paga delivery, sin importar lo que traiga el campo.
   const delivery = datos.tipo === 'pickup' ? 0 : datos.tarifa_cliente_usd
   const total = pedidoValido + delivery
   const pagado = totalPagadoUSD(datos.pagos, datos.tasa_bs_por_usd)
@@ -292,7 +292,7 @@ export function validarOrden(datos: DatosOrdenAValidar): Problema[] {
   // La dirección no se exige: muchos clientes mandan el location por WhatsApp y
   // no escriben nada. Lo que define el cobro es la zona, y esa sí es obligatoria.
 
-  // Un retiro en el local no tiene zona ni delivery que cobrar.
+  // Un pick up no tiene zona ni delivery que cobrar.
   if (datos.tipo === 'delivery' && !datos.zona_id) {
     problemas.push({ campo: 'zona_id', mensaje: 'Elige la zona: de ahí sale la tarifa del delivery.', nivel: 'error' })
   }

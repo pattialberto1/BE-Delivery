@@ -23,7 +23,7 @@ Todo se hace en la pestaña **Nueva orden**, de arriba hacia abajo.
 Arriba de todo hay dos botones:
 
 - **Delivery** — se lo llevamos al cliente.
-- **Retiro en el local** — el cliente pasa a buscarlo. No pide zona ni
+- **Pick Up** — el cliente pasa a buscarlo. No pide zona ni
   repartidor, no se cobra delivery, y solo acepta **efectivo en dólares** o
   **pago móvil**.
 

@@ -33,7 +33,7 @@ export interface Choque {
 interface Props {
   pago: BorradorPago
   indice: number
-  /** Formas de pago admitidas. Un retiro en el local solo acepta dos. */
+  /** Formas de pago admitidas. Un pick up solo acepta dos. */
   metodos?: MetodoPago[]
   cuentas: Cuenta[]
   bancos: Banco[]
