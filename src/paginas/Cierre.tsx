@@ -10,7 +10,7 @@ import {
   TOLERANCIA_DESCUADRE_USD,
 } from '../lib/reglas'
 import { ETIQUETA_METODO, type Cierre as CierreRegistro, type MetodoPago, type TotalesCierre } from '../lib/tipos'
-import { exportarExcel, liquidacionDesdeOrdenes } from '../lib/exportar'
+import { exportarCierre } from '../lib/exportar'
 import { Alerta, Boton, Cargando, ContenedorTabla, Dato, Entrada, Tarjeta } from '../componentes/UI'
 
 export function Cierre() {
@@ -81,6 +81,10 @@ export function Cierre() {
 
   const conMargen = Math.abs(totales.margen_delivery_usd) >= 0.01
 
+  // La tasa sale de las propias órdenes, no de la configuración de hoy: así el
+  // reporte de un día viejo muestra la tasa con la que realmente se cobró.
+  const tasaDelDia = ordenes.length ? Number(ordenes[0].tasa_bs_por_usd) : 0
+
   const pendientes = ordenes.filter((o) => o.estado === 'pendiente')
   const sinRepartidor = ordenes.filter((o) => !o.repartidor_id)
   const descuadradas = ordenes.filter((o) => Math.abs(o.diferencia_usd) > TOLERANCIA_DESCUADRE_USD)
@@ -140,9 +144,8 @@ export function Cierre() {
             <Boton
               variante="secundario"
               className="min-h-10 text-sm"
-              onClick={() =>
-                void exportarExcel(ordenes, liquidacionDesdeOrdenes(ordenes), `delivery-${fecha}.xlsx`)
-              }
+              disabled={ordenes.length === 0}
+              onClick={() => void exportarCierre(fecha, ordenes, totales, tasaDelDia)}
             >
               Bajar Excel
             </Boton>

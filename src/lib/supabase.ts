@@ -21,6 +21,54 @@ export const supabase = createClient(url ?? 'http://localhost', anonKey ?? 'sin-
 export const BUCKET_CAPTURAS = 'capturas'
 
 /**
+ * Dominio interno para quienes entran sin correo.
+ *
+ * Supabase necesita un correo para identificar a cada usuario, pero la cajera y
+ * los repartidores no tienen por qué tener uno. La app le pega este dominio al
+ * nombre de usuario y nadie se entera: no se envía correo a estas direcciones
+ * nunca.
+ */
+export const DOMINIO_INTERNO = 'broaster.local'
+
+/** Convierte lo tecleado en el campo "Usuario" al correo que espera Supabase. */
+export function correoDeUsuario(entrada: string): string {
+  const limpio = entrada.trim().toLowerCase()
+  // Quien tenga correo real (el dueño) puede seguir entrando con él.
+  return limpio.includes('@') ? limpio : `${limpio}@${DOMINIO_INTERNO}`
+}
+
+/**
+ * Crea un usuario sin desloguear a quien lo está creando.
+ *
+ * `signUp` deja la sesión del usuario recién creado, así que la administradora
+ * perdería la suya en el acto. Por eso se usa un cliente aparte que no guarda
+ * sesión: crea la cuenta y se descarta.
+ *
+ * Se hace desde el navegador a propósito, con la clave pública. La alternativa
+ * sería la clave de servicio, que da acceso total a la base y no puede vivir en
+ * el navegador de una tablet que está todo el día encendida en el local.
+ */
+export async function crearUsuario(datos: {
+  usuario: string
+  clave: string
+  nombre: string
+}): Promise<string> {
+  const efimero = createClient(url ?? 'http://localhost', anonKey ?? 'sin-configurar', {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  })
+
+  const { data, error } = await efimero.auth.signUp({
+    email: correoDeUsuario(datos.usuario),
+    password: datos.clave,
+    options: { data: { nombre: datos.nombre } },
+  })
+
+  if (error) throw error
+  if (!data.user) throw new Error('No se pudo crear el usuario.')
+  return data.user.id
+}
+
+/**
  * Sube una captura y devuelve su ruta dentro del bucket.
  *
  * Las agrupa por fecha para que el almacenamiento siga siendo navegable a mano
@@ -67,6 +115,18 @@ export function mensajeDeError(error: unknown): string {
   }
   if (texto.includes('Failed to fetch') || texto.includes('NetworkError')) {
     return 'No hay conexión con el servidor. Revisa el internet e intenta de nuevo.'
+  }
+  if (texto.includes('Invalid login credentials')) {
+    return 'Usuario o clave incorrectos.'
+  }
+  if (texto.includes('User already registered') || texto.includes('already been registered')) {
+    return 'Ese nombre de usuario ya existe. Elige otro.'
+  }
+  if (texto.includes('Password should be at least')) {
+    return 'La clave es muy corta: tiene que tener al menos 6 caracteres.'
+  }
+  if (texto.includes('Email address') && texto.includes('invalid')) {
+    return 'Ese nombre de usuario tiene caracteres que no se admiten. Usa solo letras y números, sin espacios.'
   }
 
   return texto

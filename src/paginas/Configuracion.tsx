@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSesion } from '../contexto/Sesion'
 import { useTasa } from '../hooks/useTasa'
-import { mensajeDeError, supabase } from '../lib/supabase'
+import { crearUsuario, mensajeDeError, supabase } from '../lib/supabase'
 import { aNumero, formatearUSD } from '../lib/reglas'
 import { ETIQUETA_ROL, type Cuenta, type RolUsuario, type Usuario, type Zona } from '../lib/tipos'
 import { Alerta, Boton, Campo, ContenedorTabla, Entrada, Seleccion, Tarjeta, Vacio } from '../componentes/UI'
@@ -377,6 +377,12 @@ function CuadroRepartidores({
 
 function CuadroUsuarios({ miId, onError }: { miId?: string; onError: (e: unknown) => void }) {
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
+  const [nombre, setNombre] = useState('')
+  const [usuarioNuevo, setUsuarioNuevo] = useState('')
+  const [clave, setClave] = useState('')
+  const [rolNuevo, setRolNuevo] = useState<RolUsuario>('cajera')
+  const [creando, setCreando] = useState(false)
+  const [creado, setCreado] = useState<string | null>(null)
 
   async function cargar() {
     const { data, error } = await supabase.from('usuarios').select('*').order('nombre')
@@ -395,10 +401,39 @@ function CuadroUsuarios({ miId, onError }: { miId?: string; onError: (e: unknown
     await cargar()
   }
 
+  async function crear() {
+    setCreando(true)
+    setCreado(null)
+    try {
+      const id = await crearUsuario({ usuario: usuarioNuevo, clave, nombre })
+      // El usuario nace desactivado; aquí se le da el rol y el acceso de una vez.
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ nombre: nombre.trim(), rol: rolNuevo, activo: true })
+        .eq('id', id)
+      if (error) throw error
+
+      setCreado(`${nombre.trim()} ya puede entrar con el usuario "${usuarioNuevo.trim().toLowerCase()}".`)
+      setNombre('')
+      setUsuarioNuevo('')
+      setClave('')
+      setRolNuevo('cajera')
+      await cargar()
+    } catch (e) {
+      onError(e)
+    } finally {
+      setCreando(false)
+    }
+  }
+
+  const usuarioValido = /^[a-z0-9._-]+$/.test(usuarioNuevo.trim().toLowerCase())
+  const puedeCrear = nombre.trim() && usuarioValido && clave.length >= 6 && !creando
+
   return (
     <Tarjeta titulo="Usuarios">
       <Alerta tono="info" className="mb-3">
-        Quien se registra entra desactivado. Hay que activarlo aquí y darle su rol antes de que pueda usar la app.
+        Aquí se crean los usuarios. Nadie puede registrarse solo: la cajera y los repartidores entran con un nombre de
+        usuario y una clave, sin necesidad de tener correo.
       </Alerta>
 
       <ContenedorTabla>
@@ -406,6 +441,7 @@ function CuadroUsuarios({ miId, onError }: { miId?: string; onError: (e: unknown
           <thead>
             <tr className="border-b border-slate-300 text-left text-xs uppercase tracking-wide text-slate-500">
               <th className="py-2 pr-3">Nombre</th>
+              <th className="py-2 pr-3">Entra como</th>
               <th className="py-2 pr-3">Rol</th>
               <th className="py-2 text-right">Estado</th>
             </tr>
@@ -419,6 +455,7 @@ function CuadroUsuarios({ miId, onError }: { miId?: string; onError: (e: unknown
                     {u.nombre}
                     {soyYo && <span className="ml-2 text-xs font-normal text-slate-500">(tú)</span>}
                   </td>
+                  <td className="py-2 pr-3 font-mono text-xs text-slate-600">{u.usuario ?? '—'}</td>
                   <td className="py-2 pr-3">
                     <Seleccion
                       value={u.rol}
@@ -451,6 +488,63 @@ function CuadroUsuarios({ miId, onError }: { miId?: string; onError: (e: unknown
           </tbody>
         </table>
       </ContenedorTabla>
+
+      <div className="mt-5 border-t border-slate-200 pt-4">
+        <h3 className="mb-3 font-bold text-slate-800">Crear un usuario</h3>
+
+        {creado && (
+          <Alerta tono="exito" className="mb-3">
+            {creado} Anota la clave y entrégasela.
+          </Alerta>
+        )}
+
+        <div className="flex flex-wrap items-end gap-3">
+          <Campo etiqueta="Nombre" ayuda="Como se le llama" className="min-w-44 flex-1">
+            <Entrada value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Génesis" />
+          </Campo>
+
+          <Campo
+            etiqueta="Usuario"
+            ayuda="Con esto entra"
+            error={usuarioNuevo && !usuarioValido ? 'Solo letras, números, punto o guion. Sin espacios.' : undefined}
+            className="w-44"
+          >
+            <Entrada
+              value={usuarioNuevo}
+              onChange={(e) => setUsuarioNuevo(e.target.value.toLowerCase())}
+              placeholder="genesis"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+          </Campo>
+
+          <Campo etiqueta="Clave" ayuda="Mínimo 6 caracteres" className="w-44">
+            <Entrada value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="new-password" />
+          </Campo>
+
+          <Campo etiqueta="Rol" className="w-44">
+            <Seleccion value={rolNuevo} onChange={(e) => setRolNuevo(e.target.value as RolUsuario)}>
+              {(Object.keys(ETIQUETA_ROL) as RolUsuario[]).map((rol) => (
+                <option key={rol} value={rol}>
+                  {ETIQUETA_ROL[rol]}
+                </option>
+              ))}
+            </Seleccion>
+          </Campo>
+
+          <Boton disabled={!puedeCrear} onClick={() => void crear()}>
+            {creando ? 'Creando…' : 'Crear'}
+          </Boton>
+        </div>
+
+        {/* La clave se muestra en claro a propósito: no hay correo al que
+            mandarla, así que hay que poder leerla y dictarla. */}
+        <p className="mt-2 text-sm text-slate-500">
+          La clave se la tienes que decir tú; el sistema no la envía a ningún lado. Después ella puede seguir usándola
+          o pedirte que se la cambies.
+        </p>
+      </div>
     </Tarjeta>
   )
 }

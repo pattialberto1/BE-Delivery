@@ -14,6 +14,8 @@ export type MetodoPago =
 export interface Usuario {
   id: string
   nombre: string
+  /** Con lo que entra a la app. Es la parte del correo antes de la arroba. */
+  usuario: string | null
   rol: RolUsuario
   activo: boolean
   creado_en: string

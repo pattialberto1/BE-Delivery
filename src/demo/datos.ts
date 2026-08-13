@@ -19,9 +19,9 @@ export const HOY = fechaOperativa(new Date(), 5)
 export const TASA_DEMO = 764.36
 
 export const USUARIOS_DEMO: Usuario[] = [
-  { id: 'u-admin', nombre: 'Yulimar', rol: 'admin', activo: true, creado_en: '2026-01-01T00:00:00Z' },
-  { id: 'u-cajera', nombre: 'Génesis', rol: 'cajera', activo: true, creado_en: '2026-01-01T00:00:00Z' },
-  { id: 'u-dueno', nombre: 'Alberto', rol: 'dueno', activo: true, creado_en: '2026-01-01T00:00:00Z' },
+  { id: 'u-admin', nombre: 'Yulimar', usuario: 'yulimar', rol: 'admin', activo: true, creado_en: '2026-01-01T00:00:00Z' },
+  { id: 'u-cajera', nombre: 'Génesis', usuario: 'genesis', rol: 'cajera', activo: true, creado_en: '2026-01-01T00:00:00Z' },
+  { id: 'u-dueno', nombre: 'Alberto', usuario: 'alberto', rol: 'dueno', activo: true, creado_en: '2026-01-01T00:00:00Z' },
 ]
 
 export const REPARTIDORES_DEMO: Repartidor[] = [

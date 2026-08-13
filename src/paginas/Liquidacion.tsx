@@ -2,7 +2,12 @@ import { useMemo, useState } from 'react'
 import { useSesion } from '../contexto/Sesion'
 import { useOrdenesRango } from '../hooks/useOrdenes'
 import { formatearFecha, formatearUSD } from '../lib/reglas'
-import { consolidarLiquidacion, exportarExcel, hayMargenDeDelivery, liquidacionDesdeOrdenes } from '../lib/exportar'
+import {
+  consolidarLiquidacion,
+  exportarLiquidacion,
+  hayMargenDeDelivery,
+  liquidacionDesdeOrdenes,
+} from '../lib/exportar'
 import { Alerta, Boton, Cargando, ContenedorTabla, Dato, Entrada, Tarjeta, Vacio } from '../componentes/UI'
 
 /**
@@ -52,7 +57,7 @@ export function Liquidacion() {
               variante="secundario"
               className="min-h-10 text-sm"
               disabled={ordenes.length === 0}
-              onClick={() => void exportarExcel(ordenes, porDia, `liquidacion-${desde}-a-${hasta}.xlsx`)}
+              onClick={() => void exportarLiquidacion(desde, hasta, ordenes)}
             >
               Bajar Excel
             </Boton>

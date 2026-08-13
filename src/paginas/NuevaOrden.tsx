@@ -5,6 +5,7 @@ import { mensajeDeError, subirCaptura, supabase } from '../lib/supabase'
 import {
   aNumero,
   calcularResumen,
+  formatearBS,
   formatearUSD,
   fuerzaDeDuplicado,
   monedaDeMetodo,
@@ -380,10 +381,16 @@ export function NuevaOrden() {
                 />
               </Campo>
 
-              <Campo etiqueta="Cliente" requerido error={tocado ? erroresPorCampo.cliente_nombre : undefined}>
+              <Campo
+                etiqueta="Nombre del cliente"
+                requerido
+                error={tocado ? erroresPorCampo.cliente_nombre : undefined}
+                ayuda="Como aparece en WhatsApp"
+              >
                 <Entrada
                   value={form.cliente_nombre}
                   onChange={(e) => setForm({ ...form, cliente_nombre: e.target.value })}
+                  placeholder="Ej: María Rodríguez"
                 />
               </Campo>
 
@@ -487,23 +494,38 @@ export function NuevaOrden() {
         <aside className="space-y-3 lg:sticky lg:top-32 lg:self-start">
           <Tarjeta titulo="Cuadre">
             <div className="space-y-3">
-              <Dato etiqueta="Pedido" valor={formatearUSD(resumen.montoPedido)} />
+              {/* Cada cifra lleva su equivalente en bolívares debajo: el precio
+                  está en dólares pero el cliente paga en Bs, y es el número que
+                  la cajera tiene que decirle por teléfono. */}
+              <Dato
+                etiqueta="Pedido"
+                valor={formatearUSD(resumen.montoPedido)}
+                detalle={formatearBS(resumen.montoPedido * tasa)}
+              />
               <Dato
                 etiqueta="Delivery"
                 valor={formatearUSD(resumen.tarifaDelivery)}
-                detalle={zonaElegida ? `${zonaElegida.nombre} · repartidor ${formatearUSD(zonaElegida.pago_repartidor_usd)}` : 'Elige la zona'}
+                detalle={
+                  zonaElegida
+                    ? `${formatearBS(resumen.tarifaDelivery * tasa)} · ${zonaElegida.nombre}`
+                    : 'Elige la zona'
+                }
               />
-              <Dato etiqueta="Total a cobrar" valor={formatearUSD(resumen.total)} />
+              <Dato
+                etiqueta="Total a cobrar"
+                valor={formatearUSD(resumen.total)}
+                detalle={formatearBS(resumen.total * tasa)}
+              />
               <Dato
                 etiqueta="Pagado"
                 valor={formatearUSD(resumen.pagado)}
                 tono={resumen.cuadra ? 'bueno' : 'malo'}
                 detalle={
                   resumen.cuadra
-                    ? 'Cuadra'
+                    ? `${formatearBS(resumen.pagado * tasa)} · cuadra`
                     : resumen.diferencia < 0
-                      ? `Faltan ${formatearUSD(Math.abs(resumen.diferencia))}`
-                      : `Sobran ${formatearUSD(resumen.diferencia)}`
+                      ? `Faltan ${formatearUSD(Math.abs(resumen.diferencia))} (${formatearBS(Math.abs(resumen.diferencia) * tasa)})`
+                      : `Sobran ${formatearUSD(resumen.diferencia)} (${formatearBS(resumen.diferencia * tasa)})`
                 }
               />
               <p className="text-center text-sm text-slate-500">Tasa del día: {tasa} Bs/$</p>

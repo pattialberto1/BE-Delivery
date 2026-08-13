@@ -25,6 +25,26 @@ import type { Cierre, Cuenta, Orden, OrdenDetalle, Pago, TasaCambio } from '../l
 
 export const configurado = true
 export const BUCKET_CAPTURAS = 'capturas'
+export const DOMINIO_INTERNO = 'broaster.local'
+
+export function correoDeUsuario(entrada: string): string {
+  const limpio = entrada.trim().toLowerCase()
+  return limpio.includes('@') ? limpio : `${limpio}@${DOMINIO_INTERNO}`
+}
+
+/** En la demo el alta de usuarios no crea nada real, solo simula el resultado. */
+export async function crearUsuario(datos: { usuario: string; clave: string; nombre: string }): Promise<string> {
+  const id = crypto.randomUUID()
+  ;(tablas.usuarios as unknown[]).push({
+    id,
+    nombre: datos.nombre,
+    usuario: datos.usuario.trim().toLowerCase(),
+    rol: 'cajera',
+    activo: false,
+    creado_en: new Date().toISOString(),
+  })
+  return id
+}
 
 // ---------------------------------------------------------------------------
 // El "servidor": tablas en memoria

@@ -37,7 +37,13 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
   a repartidores y margen. Al cerrar, la jornada queda congelada.
 - **Liquidación de repartidores**: cuántas carreras hizo cada uno y cuánto se le
   debe, por día o por rango de fechas.
-- **Exporte a Excel** con dos hojas (detalle y liquidación) y vista imprimible.
+- **Dos reportes de Excel distintos**, porque responden preguntas distintas:
+  - **Cierre** — cómo cerró el día: totales en dólares y bolívares, desglose por
+    forma de pago y por zona, y una lista de lo que quedó por revisar. El
+    detalle de las órdenes va en su propia hoja.
+  - **Liquidación** — a quién pagarle cuánto: agrupada por repartidor, con sus
+    carreras listadas debajo y el subtotal de cada uno, más una hoja de resumen
+    de una línea por persona.
 
 ## De la hoja de papel a la app
 
@@ -66,11 +72,18 @@ pagado y el total.
 | **Administradora** | Todo: verificar, cerrar la jornada, configurar zonas, tarifas y usuarios |
 | **Dueño** | Solo lectura de reportes y liquidaciones |
 
-El **primer** usuario que se registra queda como administrador activo — si no,
-no habría nadie que pudiera dar el primer acceso. Todos los demás entran
-**desactivados** y un administrador los habilita desde Configuración → Usuarios.
-Así, que alguien consiga la dirección de la app no le alcanza para ver los datos
-del negocio.
+**Nadie se registra solo.** Los usuarios los crea el administrador desde
+Configuración → Usuarios, con un nombre de usuario y una clave. La cajera y los
+repartidores **no necesitan tener correo**: entran con algo como `genesis` y su
+clave.
+
+Por debajo Supabase sigue guardando un correo, porque su sistema de
+autenticación lo necesita, así que la app le pega un dominio interno
+(`genesis@broaster.local`) que nunca recibe nada. Quien sí tenga correo real
+—el dueño— puede entrar con él igual.
+
+La única excepción es el arranque: el primer usuario que entra al sistema queda
+como administrador activo, porque no hay todavía nadie que pueda darle acceso.
 
 ---
 
@@ -88,6 +101,11 @@ del negocio.
      deliverys** (104 zonas, de $2 a $7)
    - `0004_primer_usuario_admin.sql` — hace que el primer usuario que se
      registre quede como administrador
+   - `0005_usuarios_sin_correo.sql` — permite entrar con nombre de usuario
+
+> En **Authentication → Providers → Email**, desactivar **"Confirm email"**. Los
+> usuarios sin correo real usan direcciones internas que no reciben nada, así
+> que con la confirmación activada no podrían entrar nunca.
 
 > **Antes de ejecutar `0003`**, reemplazar los repartidores de ejemplo por los
 > reales, o cargarlos después desde Configuración.
