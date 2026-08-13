@@ -69,8 +69,6 @@ Cuando esté todo, dale a **Guardar orden**.
 
 ---
 
----
-
 ## Asignar el repartidor
 
 Cuando el motorizado va a salir, entra a **Órdenes del día**:

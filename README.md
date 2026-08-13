@@ -157,12 +157,14 @@ npm run dev
 
 ### 4. Crear el primer administrador
 
-Entrar a la app y usar **"¿Usuario nuevo? Crear cuenta"**. Nada más: el primer
-usuario que se registra queda como administrador activo automáticamente, porque
-no hay todavía nadie que pueda darle acceso.
+La app no tiene registro público, así que el primer usuario se crea desde
+Supabase: **Authentication → Users → Add user**, con el correo y la clave del
+dueño. Queda como administrador activo automáticamente, porque no hay todavía
+nadie que pueda darle acceso.
 
-A partir del segundo, cada uno entra desactivado y es el administrador quien le
-da el rol y el acceso desde **Configuración → Usuarios**.
+De ahí en adelante todo se hace desde la app: el administrador crea a la cajera
+y a los demás desde **Configuración → Usuarios**, con nombre de usuario y clave,
+sin necesidad de correo.
 
 > **Si un usuario se registró pero no aparece en Configuración**, casi siempre es
 > porque se borró su fila de la tabla `usuarios`. El usuario de autenticación
