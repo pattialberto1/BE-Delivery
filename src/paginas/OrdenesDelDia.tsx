@@ -2,15 +2,18 @@ import { useMemo, useState } from 'react'
 import { useSesion } from '../contexto/Sesion'
 import { useOrdenes } from '../hooks/useOrdenes'
 import { mensajeDeError, supabase } from '../lib/supabase'
-import { detectarSaltosDeFactura, formatearUSD, TOLERANCIA_DESCUADRE_USD } from '../lib/reglas'
+import { detectarSaltosDeFactura, formatearFecha, formatearUSD, TOLERANCIA_DESCUADRE_USD } from '../lib/reglas'
 import { ETIQUETA_ESTADO, type OrdenDetalle } from '../lib/tipos'
-import { Alerta, Boton, Cargando, ContenedorTabla, Insignia, Seleccion, Tarjeta, Vacio } from '../componentes/UI'
+import { Alerta, Boton, Cargando, ContenedorTabla, Entrada, Insignia, Seleccion, Tarjeta, Vacio } from '../componentes/UI'
 
 type Filtro = 'todas' | 'pendientes' | 'descuadradas' | 'sin_repartidor'
 
 export function OrdenesDelDia() {
   const { hoy, repartidores, puedeEscribir, esAdmin } = useSesion()
-  const { ordenes, cargando, error, recargar } = useOrdenes(hoy)
+  // Se puede mirar cualquier jornada, no solo la de hoy: al día siguiente hay
+  // que poder revisar o corregir lo de ayer.
+  const [fecha, setFecha] = useState(hoy)
+  const { ordenes, cargando, error, recargar } = useOrdenes(fecha)
   const [filtro, setFiltro] = useState<Filtro>('todas')
   const [busqueda, setBusqueda] = useState('')
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
@@ -117,9 +120,21 @@ export function OrdenesDelDia() {
       )}
 
       <Tarjeta
-        titulo={`Órdenes del día (${ordenes.length})`}
+        titulo={
+          fecha === hoy ? `Órdenes del día (${ordenes.length})` : `Órdenes del ${formatearFecha(fecha)} (${ordenes.length})`
+        }
         acciones={
           <>
+            <Entrada
+              type="date"
+              value={fecha}
+              max={hoy}
+              onChange={(e) => {
+                setFecha(e.target.value)
+                setSeleccionadas(new Set())
+              }}
+              className="min-h-10 w-auto text-sm"
+            />
             <input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}

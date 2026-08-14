@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSesion } from '../contexto/Sesion'
 import { useOrdenes } from '../hooks/useOrdenes'
 import { mensajeDeError, supabase, urlDeCaptura } from '../lib/supabase'
-import { formatearMonto, formatearUSD, TOLERANCIA_DESCUADRE_USD } from '../lib/reglas'
+import { formatearFecha, formatearMonto, formatearUSD, TOLERANCIA_DESCUADRE_USD } from '../lib/reglas'
 import { ETIQUETA_METODO, type Pago } from '../lib/tipos'
-import { Alerta, Boton, Cargando, Dato, Insignia, Tarjeta, Vacio } from '../componentes/UI'
+import { Alerta, Boton, Cargando, Dato, Entrada, Insignia, Tarjeta, Vacio } from '../componentes/UI'
 
 /**
  * Verificación de la administradora.
@@ -15,7 +15,10 @@ import { Alerta, Boton, Cargando, Dato, Insignia, Tarjeta, Vacio } from '../comp
  */
 export function Verificacion() {
   const { hoy, usuario, cuentas } = useSesion()
-  const { ordenes, cargando, recargar } = useOrdenes(hoy)
+  // También se puede verificar lo de días anteriores: si quedó algo pendiente
+  // de ayer, hay que poder llegar a ello.
+  const [fecha, setFecha] = useState(hoy)
+  const { ordenes, cargando, recargar } = useOrdenes(fecha)
   const [pagosPorOrden, setPagosPorOrden] = useState<Record<string, Pago[]>>({})
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [indice, setIndice] = useState(0)
@@ -71,31 +74,57 @@ export function Verificacion() {
     await recargar()
   }
 
+  const pagos = actual ? (pagosPorOrden[actual.id] ?? []) : []
+  const cuadra = actual ? Math.abs(actual.diferencia_usd) <= TOLERANCIA_DESCUADRE_USD : true
+
+  // El selector de fecha va fuera de todo lo que pueda faltar: si no, al no
+  // quedar nada pendiente no habría forma de moverse a otro día.
+  const barraFecha = (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <Entrada
+          type="date"
+          value={fecha}
+          max={hoy}
+          onChange={(e) => {
+            setFecha(e.target.value)
+            setIndice(0)
+          }}
+          className="min-h-10 w-auto text-sm"
+        />
+        <p className="font-semibold text-slate-700">
+          Verificadas {verificadas} de {ordenes.length}
+          {pendientes.length > 0 && ` · quedan ${pendientes.length}`}
+        </p>
+      </div>
+    </div>
+  )
+
   if (cargando) return <Cargando texto="Cargando órdenes por verificar…" />
 
-  if (pendientes.length === 0) {
+  if (!actual) {
     return (
-      <Tarjeta titulo="Verificación">
-        <Alerta tono="exito" titulo="Todo verificado">
-          No queda ninguna orden pendiente de la jornada. Se verificaron {verificadas} de {ordenes.length}.
-        </Alerta>
-      </Tarjeta>
+      <div className="space-y-4">
+        {barraFecha}
+        <Tarjeta titulo={`Verificación — ${formatearFecha(fecha)}`}>
+          {ordenes.length === 0 ? (
+            <Vacio>No hay órdenes cargadas en esta jornada.</Vacio>
+          ) : (
+            <Alerta tono="exito" titulo="Todo verificado">
+              No queda ninguna orden pendiente. Se verificaron las {ordenes.length} de la jornada.
+            </Alerta>
+          )}
+        </Tarjeta>
+      </div>
     )
   }
-
-  if (!actual) return <Vacio>No hay órdenes pendientes.</Vacio>
-
-  const pagos = pagosPorOrden[actual.id] ?? []
-  const cuadra = Math.abs(actual.diferencia_usd) <= TOLERANCIA_DESCUADRE_USD
 
   return (
     <div className="space-y-4">
       {error && <Alerta tono="error">{error}</Alerta>}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-semibold text-slate-700">
-          Verificadas {verificadas} de {ordenes.length} · quedan {pendientes.length}
-        </p>
+        {barraFecha}
         <div className="flex gap-2">
           <Boton
             variante="secundario"
