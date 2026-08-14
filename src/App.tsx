@@ -5,6 +5,7 @@ import { Layout } from './componentes/Layout'
 import { Alerta, Cargando } from './componentes/UI'
 import { Login } from './paginas/Login'
 import { NuevaOrden } from './paginas/NuevaOrden'
+import { Asignar } from './paginas/Asignar'
 import { OrdenesDelDia } from './paginas/OrdenesDelDia'
 import { Verificacion } from './paginas/Verificacion'
 import { Cierre } from './paginas/Cierre'
@@ -36,6 +37,14 @@ function Rutas() {
           element={
             <SoloRol roles={['cajera', 'admin']}>
               <NuevaOrden />
+            </SoloRol>
+          }
+        />
+        <Route
+          path="/asignar"
+          element={
+            <SoloRol roles={['cajera', 'admin']}>
+              <Asignar />
             </SoloRol>
           }
         />

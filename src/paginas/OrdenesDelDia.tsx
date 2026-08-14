@@ -77,6 +77,27 @@ export function OrdenesDelDia() {
     })
   }
 
+  /**
+   * Corregir el número de factura sin anular la orden.
+   *
+   * Antes, un dígito mal tecleado obligaba a anular y volver a cargarlo todo:
+   * cliente, zona, pagos y captura. Ahora se corrige en el sitio.
+   */
+  async function corregirFactura(orden: OrdenDetalle) {
+    const nuevo = window.prompt(
+      `Número de factura de esta orden (${orden.cliente_nombre}):`,
+      orden.numero_factura,
+    )
+    if (!nuevo?.trim() || nuevo.trim() === orden.numero_factura) return
+    setErrorAccion(null)
+    const { error } = await supabase
+      .from('ordenes')
+      .update({ numero_factura: nuevo.trim() })
+      .eq('id', orden.id)
+    if (error) setErrorAccion(mensajeDeError(error))
+    await recargar()
+  }
+
   async function anular(orden: OrdenDetalle) {
     const motivo = window.prompt(`Anular la factura ${orden.numero_factura}. ¿Motivo?`)
     if (!motivo?.trim()) return
@@ -204,7 +225,17 @@ export function OrdenesDelDia() {
                         )}
                       </td>
                       <td className="py-2 pr-3 font-bold tabular-nums">
-                        {o.numero_factura}
+                        {puedeEscribir && o.estado === 'pendiente' ? (
+                          <button
+                            onClick={() => void corregirFactura(o)}
+                            title="Corregir el número de factura"
+                            className="underline decoration-dotted underline-offset-4 hover:text-marca-700"
+                          >
+                            {o.numero_factura}
+                          </button>
+                        ) : (
+                          o.numero_factura
+                        )}
                         {o.tipo === 'pickup' && (
                           <div className="mt-0.5">
                             <Insignia>Retiro</Insignia>

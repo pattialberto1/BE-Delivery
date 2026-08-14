@@ -128,8 +128,22 @@ export interface OrdenDetalle {
   cargada_por: string | null
   creada_en: string
   pagado_usd: number
+  /** Lo que entró en efectivo/divisa, tal cual: sin convertir. */
+  pagado_divisa_usd: number
+  /** Lo que entró en bolívares, tal cual: sin convertir. */
+  pagado_bs: number
   diferencia_usd: number
   cantidad_pagos: number
+}
+
+/** Con qué plata se cobró una carrera. */
+export type MonedaCobro = 'USD' | 'BS' | 'MIXTO' | 'SIN_PAGO'
+
+export const ETIQUETA_MONEDA_COBRO: Record<MonedaCobro, string> = {
+  USD: 'Dólares',
+  BS: 'Bolívares',
+  MIXTO: 'Mixto',
+  SIN_PAGO: 'Sin pago',
 }
 
 /** Fila de `v_liquidacion_repartidores`: el cuadro que hoy se arma a mano. */

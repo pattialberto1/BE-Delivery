@@ -8,7 +8,29 @@ import {
   type OrdenDetalle,
   type TotalesCierre,
 } from './tipos'
-import { detectarSaltosDeFactura, formatearFecha, TOLERANCIA_DESCUADRE_USD } from './reglas'
+import { detectarSaltosDeFactura, formatearFecha, monedaDeCobro, TOLERANCIA_DESCUADRE_USD } from './reglas'
+import { ETIQUETA_MONEDA_COBRO } from './tipos'
+
+/**
+ * Cuenta las carreras por la moneda con la que se cobraron.
+ *
+ * Al repartidor se le paga con la plata que entró, así que hace falta saber
+ * cuántas de sus carreras trajeron dólares y cuántas bolívares.
+ */
+export function carrerasPorMoneda(ordenes: OrdenDetalle[]) {
+  const conteo = { USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0 }
+  for (const orden of ordenes) conteo[monedaDeCobro(orden)] += 1
+  return conteo
+}
+
+/** Resume el conteo en una línea legible, omitiendo lo que no ocurrió. */
+export function resumenMonedas(ordenes: OrdenDetalle[]): string {
+  const conteo = carrerasPorMoneda(ordenes)
+  const partes = (Object.keys(conteo) as Array<keyof typeof conteo>)
+    .filter((clave) => conteo[clave] > 0)
+    .map((clave) => `${conteo[clave]} en ${ETIQUETA_MONEDA_COBRO[clave].toLowerCase()}`)
+  return partes.join(' · ')
+}
 
 /**
  * Exportación a Excel.
@@ -157,6 +179,27 @@ export async function exportarCierre(
         texto(`${pickups.length} pedido${pickups.length === 1 ? '' : 's'} que el cliente vino a buscar`),
         dinero(pickups.reduce((suma, o) => suma + Number(o.total_usd), 0), true),
       ],
+    )
+  }
+
+  const entregas = ordenes.filter((o) => o.tipo !== 'pickup')
+  if (entregas.length) {
+    const conteo = carrerasPorMoneda(entregas)
+    filas.push(
+      FILA_VACIA,
+      seccion('Carreras según la moneda con que se cobraron', 4),
+      encabezados(['Cobrado en', 'Carreras', 'Delivery $']),
+      ...(['USD', 'BS', 'MIXTO', 'SIN_PAGO'] as const)
+        .filter((clave) => conteo[clave] > 0)
+        .map((clave) => [
+          texto(ETIQUETA_MONEDA_COBRO[clave]),
+          entero(conteo[clave]),
+          dinero(
+            entregas
+              .filter((o) => monedaDeCobro(o) === clave)
+              .reduce((suma, o) => suma + Number(o.tarifa_cliente_usd), 0),
+          ),
+        ]),
     )
   }
 
@@ -324,7 +367,7 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
         },
         ...vacias(4),
       ],
-      encabezados(['Fecha', 'Factura', 'Cliente', 'Zona', 'A pagar $']),
+      encabezados(['Fecha', 'Factura', 'Cliente', 'Cobrado en', 'A pagar $']),
     )
 
     for (const orden of [...suyas].sort(
@@ -336,14 +379,18 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
         texto(formatearFecha(orden.fecha_operativa)),
         texto(orden.numero_factura),
         texto(orden.cliente_nombre),
-        texto(orden.zona),
+        texto(ETIQUETA_MONEDA_COBRO[monedaDeCobro(orden)]),
         dinero(orden.pago_repartidor_usd),
       ])
     }
 
     filas.push(
       [
-        { value: `${suyas.length} carrera${suyas.length === 1 ? '' : 's'}`, fontWeight: 'bold', columnSpan: 4 },
+        {
+          value: `${suyas.length} carrera${suyas.length === 1 ? '' : 's'} — ${resumenMonedas(suyas)}`,
+          fontWeight: 'bold',
+          columnSpan: 4,
+        },
         ...vacias(3),
         {
           value: subtotal,
@@ -392,25 +439,41 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
 
   // Hoja de resumen: una línea por repartidor, para firmar y pagar.
   const resumen: Row[] = [
-    titulo('Resumen de pago', 3),
-    subtitulo(rango, 3),
+    titulo('Resumen de pago', 6),
+    subtitulo(rango, 6),
     FILA_VACIA,
-    encabezados(['Repartidor', 'Carreras', 'A pagar $']),
+    encabezados(['Repartidor', 'Carreras', 'En dólares', 'En bolívares', 'Mixtas', 'A pagar $']),
   ]
   for (const nombre of [...porRepartidor.keys()].sort((a, b) => a.localeCompare(b, 'es'))) {
     const suyas = porRepartidor.get(nombre)!
+    const conteo = carrerasPorMoneda(suyas)
     resumen.push([
       texto(nombre),
       entero(suyas.length),
+      entero(conteo.USD),
+      entero(conteo.BS),
+      entero(conteo.MIXTO),
       dinero(suyas.reduce((suma, o) => suma + Number(o.pago_repartidor_usd), 0)),
     ])
   }
-  resumen.push([texto('Total', true), entero(carrerasGenerales, true), dinero(totalGeneral, true)])
+  const totalConteo = carrerasPorMoneda(conRepartidor)
+  resumen.push([
+    texto('Total', true),
+    entero(carrerasGenerales, true),
+    entero(totalConteo.USD, true),
+    entero(totalConteo.BS, true),
+    entero(totalConteo.MIXTO, true),
+    dinero(totalGeneral, true),
+  ])
 
   await writeXlsxFile(
     [
       { data: filas, sheet: 'Liquidación', columns: ANCHOS_LIQUIDACION },
-      { data: resumen, sheet: 'Resumen', columns: [{ width: 26 }, { width: 12 }, { width: 14 }] },
+      {
+        data: resumen,
+        sheet: 'Resumen',
+        columns: [{ width: 26 }, { width: 11 }, { width: 12 }, { width: 13 }, { width: 10 }, { width: 14 }],
+      },
     ],
     { fontFamily: 'Calibri', fontSize: 11 },
   ).toFile(`liquidacion-${desde}-a-${hasta}.xlsx`)

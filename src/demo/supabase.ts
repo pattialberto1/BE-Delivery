@@ -82,6 +82,8 @@ function vistaOrdenesDetalle(): OrdenDetalle[] {
         (suma, p) => suma + (p.moneda === 'USD' ? Number(p.monto) : Number(p.monto) / Number(o.tasa_bs_por_usd)),
         0,
       )
+      const divisa = suyos.reduce((suma, p) => suma + (p.moneda === 'USD' ? Number(p.monto) : 0), 0)
+      const bolivares = suyos.reduce((suma, p) => suma + (p.moneda === 'BS' ? Number(p.monto) : 0), 0)
       const total = Number(o.monto_pedido_usd) + Number(o.tarifa_cliente_usd)
 
       return {
@@ -106,6 +108,8 @@ function vistaOrdenesDetalle(): OrdenDetalle[] {
         cargada_por: USUARIOS_DEMO.find((u) => u.id === o.creada_por)?.nombre ?? null,
         creada_en: o.creada_en,
         pagado_usd: pagado,
+        pagado_divisa_usd: divisa,
+        pagado_bs: bolivares,
         diferencia_usd: Math.round((pagado - total) * 100) / 100,
         cantidad_pagos: suyos.length,
       }

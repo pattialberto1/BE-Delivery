@@ -71,14 +71,27 @@ Cuando esté todo, dale a **Guardar orden**.
 
 ## Asignar el repartidor
 
-Cuando el motorizado va a salir, entra a **Órdenes del día**:
+Cuando sube un motorizado y escoge sus comandas, entra a la pestaña
+**Asignar**. Son dos pasos:
 
-1. Marca la casilla de las órdenes que va a llevar — puedes marcar varias.
-2. Abajo aparece una barra: elige el repartidor y dale **Asignar**.
+1. **Toca al repartidor que subió.**
+2. **Toca las comandas que se lleva.** Cada toque la asigna al instante. Si se
+   lleva dos, tócalas las dos.
 
-Arriba de la pantalla siempre dice cuántas faltan por asignar, con un botón para
-ver solo esas. **No se puede cerrar el día si queda alguna sin asignar**, porque
-esa carrera no se le pagaría a nadie.
+Si te equivocas, sale un botón **Deshacer** arriba.
+
+**No se puede cerrar el día si queda alguna sin asignar**, porque esa carrera no
+se le pagaría a nadie.
+
+---
+
+## Si te equivocaste en el número de factura
+
+En **Órdenes del día**, toca el número de factura (está subrayado) y escribe el
+correcto. No hace falta anular nada ni volver a cargar la orden.
+
+Si anulaste una orden por error de número, **ese número vuelve a quedar libre**
+y lo puedes usar en otra orden.
 
 ---
 

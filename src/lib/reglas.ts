@@ -7,7 +7,7 @@
  * todavía está en línea y el error se puede corregir.
  */
 
-import type { BorradorPago, MetodoPago, Moneda, TipoOrden } from './tipos'
+import type { BorradorPago, MetodoPago, Moneda, MonedaCobro, TipoOrden } from './tipos'
 
 /** Métodos que no dejan rastro de referencia que se pueda cotejar después. */
 const METODOS_EFECTIVO: MetodoPago[] = ['efectivo_bs', 'efectivo_usd']
@@ -127,6 +127,23 @@ export function fuerzaDeDuplicado(
   // Los montos vienen de la misma moneda, así que se comparan con la tolerancia
   // de un centavo para no tropezar con el redondeo.
   return Math.abs(monto - montoExistente) < 0.01 ? 'seguro' : 'posible'
+}
+
+/**
+ * Con qué plata se cobró una orden.
+ *
+ * Importa para la liquidación: al repartidor se le paga con lo que entró, así
+ * que hay que saber qué carreras trajeron dólares y cuáles bolívares. Una orden
+ * puede ser mixta —parte en efectivo y parte por pago móvil— y ese caso no se
+ * puede forzar a una sola moneda sin mentir.
+ */
+export function monedaDeCobro(orden: { pagado_divisa_usd: number; pagado_bs: number }): MonedaCobro {
+  const divisa = Number(orden.pagado_divisa_usd) > 0
+  const bolivares = Number(orden.pagado_bs) > 0
+  if (divisa && bolivares) return 'MIXTO'
+  if (divisa) return 'USD'
+  if (bolivares) return 'BS'
+  return 'SIN_PAGO'
 }
 
 export interface Problema {

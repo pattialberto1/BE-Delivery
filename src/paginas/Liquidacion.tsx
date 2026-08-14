@@ -3,6 +3,7 @@ import { useSesion } from '../contexto/Sesion'
 import { useOrdenesRango } from '../hooks/useOrdenes'
 import { formatearFecha, formatearUSD } from '../lib/reglas'
 import {
+  carrerasPorMoneda,
   consolidarLiquidacion,
   exportarLiquidacion,
   hayMargenDeDelivery,
@@ -39,6 +40,22 @@ export function Liquidacion() {
   // Con el esquema actual el repartidor cobra el delivery completo, así que
   // «cobrado» y «a pagar» son la misma cifra. Se muestran solo si difieren.
   const conMargen = useMemo(() => hayMargenDeDelivery(consolidado), [consolidado])
+
+  // Con qué plata se cobró cada carrera: al repartidor se le paga con lo que
+  // entró, así que hay que poder separar las de dólares de las de bolívares.
+  const entregas = useMemo(() => ordenes.filter((o) => o.tipo !== 'pickup' && o.repartidor_id), [ordenes])
+  const monedasPorRepartidor = useMemo(() => {
+    const mapa = new Map<string, ReturnType<typeof carrerasPorMoneda>>()
+    for (const orden of entregas) {
+      const previo = mapa.get(orden.repartidor_id!) ?? { USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0 }
+      mapa.set(orden.repartidor_id!, previo)
+    }
+    for (const [id] of mapa) {
+      mapa.set(id, carrerasPorMoneda(entregas.filter((o) => o.repartidor_id === id)))
+    }
+    return mapa
+  }, [entregas])
+  const totalMonedas = useMemo(() => carrerasPorMoneda(entregas), [entregas])
 
   const unSoloDia = desde === hasta
 
@@ -97,6 +114,8 @@ export function Liquidacion() {
                   <tr className="border-b-2 border-slate-300 text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="py-2 pr-3">Repartidor</th>
                     <th className="py-2 pr-3 text-right">Carreras</th>
+                    <th className="py-2 pr-3 text-right">En $</th>
+                    <th className="py-2 pr-3 text-right">En Bs</th>
                     <th className="py-2 pr-3 text-right">A pagar</th>
                     {conMargen && (
                       <>
@@ -111,6 +130,12 @@ export function Liquidacion() {
                     <tr key={fila.repartidor_id} className="border-b border-slate-100">
                       <td className="py-2.5 pr-3 font-semibold">{fila.repartidor}</td>
                       <td className="py-2.5 pr-3 text-right tabular-nums">{fila.carreras}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums text-slate-600">
+                        {monedasPorRepartidor.get(fila.repartidor_id)?.USD || '—'}
+                      </td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums text-slate-600">
+                        {monedasPorRepartidor.get(fila.repartidor_id)?.BS || '—'}
+                      </td>
                       <td className="py-2.5 pr-3 text-right text-lg font-bold tabular-nums text-slate-900">
                         {formatearUSD(fila.total_pagar_usd)}
                       </td>
@@ -131,6 +156,8 @@ export function Liquidacion() {
                   <tr className="border-t-2 border-slate-300 font-bold">
                     <td className="py-2.5 pr-3">Total</td>
                     <td className="py-2.5 pr-3 text-right tabular-nums">{totalCarreras}</td>
+                    <td className="py-2.5 pr-3 text-right tabular-nums">{totalMonedas.USD || '—'}</td>
+                    <td className="py-2.5 pr-3 text-right tabular-nums">{totalMonedas.BS || '—'}</td>
                     <td className="py-2.5 pr-3 text-right text-lg tabular-nums">{formatearUSD(totalPagar)}</td>
                     {conMargen && (
                       <>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { consolidarLiquidacion, hayMargenDeDelivery, liquidacionDesdeOrdenes } from './exportar'
+import { carrerasPorMoneda, consolidarLiquidacion, hayMargenDeDelivery, liquidacionDesdeOrdenes, resumenMonedas } from './exportar'
 import type { LiquidacionRepartidor, OrdenDetalle } from './tipos'
 
 /**
@@ -32,6 +32,8 @@ function orden(parcial: Partial<OrdenDetalle> = {}): OrdenDetalle {
     cargada_por: 'Cajera',
     creada_en: '2026-08-12T20:00:00Z',
     pagado_usd: 10 + tarifa,
+    pagado_divisa_usd: 0,
+    pagado_bs: (10 + tarifa) * 40,
     diferencia_usd: 0,
     cantidad_pagos: 1,
     ...parcial,
@@ -90,6 +92,40 @@ describe('liquidacionDesdeOrdenes', () => {
 
   it('devuelve vacío si no hay órdenes', () => {
     expect(liquidacionDesdeOrdenes([])).toEqual([])
+  })
+})
+
+describe('carrerasPorMoneda', () => {
+  const enBolivares = orden({ pagado_divisa_usd: 0, pagado_bs: 480 })
+  const enDolares = orden({ pagado_divisa_usd: 12, pagado_bs: 0 })
+  const mixta = orden({ pagado_divisa_usd: 5, pagado_bs: 280 })
+  const sinPago = orden({ pagado_divisa_usd: 0, pagado_bs: 0 })
+
+  it('separa las carreras según con qué plata se cobraron', () => {
+    const conteo = carrerasPorMoneda([enBolivares, enDolares, enDolares, mixta])
+    expect(conteo.BS).toBe(1)
+    expect(conteo.USD).toBe(2)
+    expect(conteo.MIXTO).toBe(1)
+  })
+
+  it('no fuerza a una sola moneda la que se cobró mezclada', () => {
+    // Parte en efectivo y parte por pago móvil: meterla en cualquiera de las
+    // dos columnas descuadraría el efectivo que hay en la caja.
+    expect(carrerasPorMoneda([mixta]).MIXTO).toBe(1)
+    expect(carrerasPorMoneda([mixta]).USD).toBe(0)
+    expect(carrerasPorMoneda([mixta]).BS).toBe(0)
+  })
+
+  it('cuenta aparte la que no tiene pago cargado', () => {
+    expect(carrerasPorMoneda([sinPago]).SIN_PAGO).toBe(1)
+  })
+
+  it('resume en una línea omitiendo lo que no ocurrió', () => {
+    expect(resumenMonedas([enDolares, enDolares, enBolivares])).toBe('2 en dólares · 1 en bolívares')
+  })
+
+  it('devuelve todo en cero sin órdenes', () => {
+    expect(carrerasPorMoneda([])).toEqual({ USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0 })
   })
 })
 

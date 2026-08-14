@@ -13,6 +13,7 @@ interface Enlace {
 
 const ENLACES: Enlace[] = [
   { a: '/nueva', texto: 'Nueva orden', roles: ['cajera', 'admin'] },
+  { a: '/asignar', texto: 'Asignar', roles: ['cajera', 'admin'] },
   { a: '/ordenes', texto: 'Órdenes del día' },
   { a: '/verificar', texto: 'Verificar', roles: ['admin'] },
   { a: '/cierre', texto: 'Cierre' },

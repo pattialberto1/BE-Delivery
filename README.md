@@ -119,6 +119,8 @@ como administrador activo, porque no hay todavía nadie que pueda darle acceso.
    - `0008_pickup.sql` — pedidos que el cliente pasa a buscar (pick up)
    - `0009_renombrar_pick_up.sql` — solo hace falta si se ejecutó la `0008`
      antes del cambio de nombre
+   - `0010_monedas_y_factura_anulada.sql` — separa lo cobrado en cada moneda y
+     libera el número de factura de las órdenes anuladas
 
 > En **Authentication → Providers → Email**, desactivar **"Confirm email"**. Los
 > usuarios sin correo real usan direcciones internas que no reciben nada, así
