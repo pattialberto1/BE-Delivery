@@ -290,6 +290,19 @@ export function calcularResumen(datos: DatosOrdenAValidar): ResumenOrden {
 }
 
 /**
+ * Qué forma de pago proponer para completar lo que falta.
+ *
+ * Es muy común que el cliente pague una parte por pago móvil y el resto en
+ * dólares en efectivo. Si lo que ya se cargó vino todo en bolívares, lo que
+ * falta casi siempre son dólares, y al revés. Proponer la forma contraria
+ * acierta la mayoría de las veces y, cuando no, se cambia con un toque.
+ */
+export function metodoParaCompletar(pagos: BorradorPago[]): MetodoPago {
+  const hayBolivares = pagos.some((pago) => pago.moneda === 'BS')
+  return hayBolivares ? 'efectivo_usd' : 'pago_movil'
+}
+
+/**
  * Valida una orden completa antes de guardarla.
  *
  * Devuelve todos los problemas juntos, no el primero: quien está cargando con

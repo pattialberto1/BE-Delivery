@@ -53,8 +53,22 @@ Abajo, en **Pagos**, llena lo que muestra la captura que mandó el cliente:
 - **Monto** — en bolívares
 - **Captura del pago** — adjunta la imagen
 
-Si el cliente pagó **una parte en pago móvil y otra en efectivo**, dale a
-**"+ Agregar pago"** y carga los dos por separado.
+### Si pagó de dos formas
+
+Es muy común: manda una parte por pago móvil y trae el resto en dólares cuando
+llega el pedido.
+
+Carga primero el pago móvil con su monto. **En cuanto el sistema vea que falta
+plata, te lo dice y te ofrece un botón** con el monto exacto que queda:
+
+> Faltan $10,92 por cubrir. ¿Pagó el resto de otra forma?
+> **+ Agregar los $10,92 que faltan**
+
+Tócalo y aparece un segundo pago con el monto ya puesto y la forma ya propuesta
+(si el primero fue en bolívares, propone efectivo en dólares). Solo revisas y
+listo: el cuadre cierra solo.
+
+Sirve igual para tres pagos o más — el botón vuelve a salir mientras falte algo.
 
 ### 4. Revisa el cuadre y guarda
 

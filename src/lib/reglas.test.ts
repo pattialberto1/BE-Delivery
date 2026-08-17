@@ -8,6 +8,7 @@ import {
   normalizarTexto,
   referenciaEsConfiable,
   fechaOperativa,
+  metodoParaCompletar,
   monedaDeMetodo,
   normalizarReferencia,
   pagoEnUSD,
@@ -271,6 +272,27 @@ describe('validarOrden', () => {
   it('rechaza un monto de pedido negativo', () => {
     const problemas = validarOrden(orden({ monto_pedido_usd: '-5' }))
     expect(problemas.some((p) => p.campo === 'monto_pedido_usd' && p.nivel === 'error')).toBe(true)
+  })
+})
+
+describe('completar un pago mixto', () => {
+  it('si ya entró algo en bolívares, propone dólares en efectivo', () => {
+    // Es el caso de todos los días: manda el pago móvil y trae el resto en
+    // efectivo cuando llega el pedido.
+    expect(metodoParaCompletar([pago({ moneda: 'BS' })])).toBe('efectivo_usd')
+  })
+
+  it('si ya entró en dólares, propone pago móvil', () => {
+    expect(metodoParaCompletar([pago({ metodo: 'efectivo_usd', moneda: 'USD' })])).toBe('pago_movil')
+  })
+
+  it('con pagos mixtos ya cargados, sigue proponiendo dólares', () => {
+    const mezcla = [pago({ moneda: 'BS' }), pago({ metodo: 'efectivo_usd', moneda: 'USD' })]
+    expect(metodoParaCompletar(mezcla)).toBe('efectivo_usd')
+  })
+
+  it('sin ningún pago cargado, propone pago móvil', () => {
+    expect(metodoParaCompletar([])).toBe('pago_movil')
   })
 })
 

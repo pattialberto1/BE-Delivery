@@ -39,6 +39,10 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
   - número de factura repetido,
   - lo pagado no cuadra con el total,
   - faltan números en el correlativo de facturas del día.
+- **Pagos partidos**: cuando el cliente manda una parte por pago móvil y trae el
+  resto en dólares, la app detecta lo que falta y ofrece agregarlo con el monto
+  y la forma ya propuestos. Cada orden guarda sus pagos por separado, así que el
+  cierre y la liquidación saben con qué plata entró cada carrera.
 - **Registra en cuál de nuestras cuentas cayó cada pago** (la columna «BANCO»
   del papel), que es el dato que dice en qué banco meterse a confirmarlo.
 - **Verificación**: la administradora ve la captura del pago al lado de lo que

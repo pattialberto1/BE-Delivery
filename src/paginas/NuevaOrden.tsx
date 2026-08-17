@@ -8,6 +8,7 @@ import {
   formatearBS,
   formatearUSD,
   fuerzaDeDuplicado,
+  metodoParaCompletar,
   monedaDeMetodo,
   normalizarReferencia,
   referenciasCoinciden,
@@ -135,6 +136,28 @@ export function NuevaOrden() {
     }
     return mapa
   }, [problemas])
+
+  // Lo que aún no cubre ningún pago. Solo cuenta si ya hay algo cargado: con el
+  // formulario en blanco no es un faltante, es que no se ha empezado.
+  const faltaPorCobrar =
+    pagos.length > 0 && resumen.total > 0 && resumen.diferencia < 0 ? -resumen.diferencia : 0
+
+  /** Agrega un pago por lo que falta, con el monto y la forma ya propuestos. */
+  function agregarPagoDelResto() {
+    const metodo = metodoParaCompletar(pagos)
+    const moneda = monedaDeMetodo(metodo)
+    const monto = moneda === 'USD' ? faltaPorCobrar : faltaPorCobrar * (tasa ?? 0)
+    setPagos([
+      ...pagos,
+      {
+        ...pagoVacio(),
+        metodo,
+        moneda,
+        // Dos decimales: es un monto de dinero, no el resultado de una división.
+        monto: monto.toFixed(2).replace('.', ','),
+      },
+    ])
+  }
 
   const avisos = problemas.filter((p) => p.nivel === 'aviso')
   const errores = problemas.filter((p) => p.nivel === 'error')
@@ -512,7 +535,7 @@ export function NuevaOrden() {
             titulo="Pagos"
             acciones={
               <Boton variante="secundario" onClick={() => setPagos([...pagos, pagoVacio()])} className="min-h-10 text-sm">
-                + Agregar pago
+                + Otro pago
               </Boton>
             }
           >
@@ -535,6 +558,24 @@ export function NuevaOrden() {
               ))}
               {pagos.length === 0 && (
                 <Alerta tono="error">Agrega al menos un pago antes de guardar.</Alerta>
+              )}
+
+              {/* Que un cliente pague una parte por pago móvil y el resto en
+                  dólares es de todos los días, pero "+ Otro pago" arriba no lo
+                  sugiere. Cuando falta plata se ofrece aquí, con el monto ya
+                  puesto: es el momento exacto en que hace falta. */}
+              {faltaPorCobrar > 0.01 && (
+                <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3">
+                  <p className="font-semibold text-amber-900">
+                    Faltan {formatearUSD(faltaPorCobrar)} ({formatearBS(faltaPorCobrar * tasa)}) por cubrir.
+                  </p>
+                  <p className="mt-0.5 text-sm text-amber-800">
+                    ¿Pagó el resto de otra forma? Agrégalo y el cuadre cierra solo.
+                  </p>
+                  <Boton className="mt-2" onClick={agregarPagoDelResto}>
+                    + Agregar los {formatearUSD(faltaPorCobrar)} que faltan
+                  </Boton>
+                </div>
               )}
             </div>
           </Tarjeta>
