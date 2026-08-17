@@ -99,13 +99,26 @@ se le pagaría a nadie.
 
 ---
 
-## Si te equivocaste en el número de factura
+## Corregir una orden ya cargada
 
-En **Órdenes del día**, toca el número de factura (está subrayado) y escribe el
-correcto. No hace falta anular nada ni volver a cargar la orden.
+En **Órdenes del día**, toca el **número de factura** (está subrayado) o el botón
+**Editar** de esa fila.
 
-Si anulaste una orden por error de número, **ese número vuelve a quedar libre**
-y lo puedes usar en otra orden.
+Se abre la misma pantalla de siempre, con todo lo que cargaste ya puesto. Puedes
+cambiar cualquier cosa: el número de factura, el cliente, el teléfono, la
+dirección, la zona, el monto, el repartidor, las notas y los pagos.
+
+Si cambias la **zona**, la tarifa del delivery se recalcula sola. Si cambias un
+**monto**, el cuadre se rehace al instante.
+
+Cuando termines, dale a **Guardar cambios**. No hace falta anular nada ni volver
+a cargar la orden desde cero.
+
+**Una orden ya verificada solo la puede cambiar la administradora.** Si la
+tocaras después de aprobada, la verificación no valdría nada.
+
+Y si alguna vez anulas una orden por error de número, **ese número vuelve a
+quedar libre** para usarlo en otra.
 
 ---
 

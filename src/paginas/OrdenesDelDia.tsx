@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useSesion } from '../contexto/Sesion'
 import { useOrdenes } from '../hooks/useOrdenes'
 import { mensajeDeError, supabase } from '../lib/supabase'
@@ -75,27 +76,6 @@ export function OrdenesDelDia() {
       else siguiente.add(id)
       return siguiente
     })
-  }
-
-  /**
-   * Corregir el número de factura sin anular la orden.
-   *
-   * Antes, un dígito mal tecleado obligaba a anular y volver a cargarlo todo:
-   * cliente, zona, pagos y captura. Ahora se corrige en el sitio.
-   */
-  async function corregirFactura(orden: OrdenDetalle) {
-    const nuevo = window.prompt(
-      `Número de factura de esta orden (${orden.cliente_nombre}):`,
-      orden.numero_factura,
-    )
-    if (!nuevo?.trim() || nuevo.trim() === orden.numero_factura) return
-    setErrorAccion(null)
-    const { error } = await supabase
-      .from('ordenes')
-      .update({ numero_factura: nuevo.trim() })
-      .eq('id', orden.id)
-    if (error) setErrorAccion(mensajeDeError(error))
-    await recargar()
   }
 
   async function anular(orden: OrdenDetalle) {
@@ -225,14 +205,14 @@ export function OrdenesDelDia() {
                         )}
                       </td>
                       <td className="py-2 pr-3 font-bold tabular-nums">
-                        {puedeEscribir && o.estado === 'pendiente' ? (
-                          <button
-                            onClick={() => void corregirFactura(o)}
-                            title="Corregir el número de factura"
+                        {puedeEscribir ? (
+                          <Link
+                            to={`/orden/${o.id}`}
+                            title="Editar esta orden"
                             className="underline decoration-dotted underline-offset-4 hover:text-marca-700"
                           >
                             {o.numero_factura}
-                          </button>
+                          </Link>
                         ) : (
                           o.numero_factura
                         )}
@@ -285,11 +265,21 @@ export function OrdenesDelDia() {
                         <Insignia tono={o.estado}>{ETIQUETA_ESTADO[o.estado]}</Insignia>
                       </td>
                       <td className="py-2">
+                        <div className="flex justify-end gap-2">
+                        {puedeEscribir && (
+                          <Link
+                            to={`/orden/${o.id}`}
+                            className="inline-flex min-h-9 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                          >
+                            Editar
+                          </Link>
+                        )}
                         {esAdmin && (
                           <Boton variante="peligro" onClick={() => void anular(o)} className="min-h-9 px-3 text-xs">
                             Anular
                           </Boton>
                         )}
+                        </div>
                       </td>
                     </tr>
                   )

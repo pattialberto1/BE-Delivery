@@ -8,47 +8,19 @@ import {
   formatearBS,
   formatearUSD,
   fuerzaDeDuplicado,
-  metodoParaCompletar,
-  monedaDeMetodo,
   normalizarReferencia,
   referenciasCoinciden,
   tieneErrores,
   validarOrden,
   type DatosOrdenAValidar,
 } from '../lib/reglas'
-import { ETIQUETA_TIPO, METODOS_PICKUP, type BorradorPago, type Moneda, type TipoOrden } from '../lib/tipos'
-import { Alerta, Boton, Campo, Dato, Entrada, Seleccion, Tarjeta, AreaTexto } from '../componentes/UI'
-import { FilaPago, type Choque } from '../componentes/FilaPago'
-import { SelectorZona } from '../componentes/SelectorZona'
+import type { BorradorPago, Moneda } from '../lib/tipos'
+import { Alerta, Boton, Campo, Dato, Entrada, Tarjeta } from '../componentes/UI'
+import { type Choque } from '../componentes/FilaPago'
+import { FormularioOrden } from '../componentes/FormularioOrden'
+import { formularioVacio, pagoVacio } from '../lib/borradores'
 
 const CLAVE_BORRADOR = 'be-delivery:borrador-orden'
-
-function pagoVacio(): BorradorPago {
-  return {
-    clave: crypto.randomUUID(),
-    metodo: 'pago_movil',
-    cuenta_id: null,
-    banco_id: null,
-    referencia: '',
-    emisor: '',
-    monto: '',
-    moneda: monedaDeMetodo('pago_movil'),
-  }
-}
-
-function formularioVacio() {
-  return {
-    tipo: 'delivery' as TipoOrden,
-    numero_factura: '',
-    cliente_nombre: '',
-    cliente_telefono: '',
-    direccion: '',
-    zona_id: '',
-    repartidor_id: '',
-    monto_pedido_usd: '',
-    notas: '',
-  }
-}
 
 export function NuevaOrden() {
   const { zonas, repartidores, bancos, cuentas, hoy, usuario } = useSesion()
@@ -141,23 +113,6 @@ export function NuevaOrden() {
   // formulario en blanco no es un faltante, es que no se ha empezado.
   const faltaPorCobrar =
     pagos.length > 0 && resumen.total > 0 && resumen.diferencia < 0 ? -resumen.diferencia : 0
-
-  /** Agrega un pago por lo que falta, con el monto y la forma ya propuestos. */
-  function agregarPagoDelResto() {
-    const metodo = metodoParaCompletar(pagos)
-    const moneda = monedaDeMetodo(metodo)
-    const monto = moneda === 'USD' ? faltaPorCobrar : faltaPorCobrar * (tasa ?? 0)
-    setPagos([
-      ...pagos,
-      {
-        ...pagoVacio(),
-        metodo,
-        moneda,
-        // Dos decimales: es un monto de dinero, no el resultado de una división.
-        monto: monto.toFixed(2).replace('.', ','),
-      },
-    ])
-  }
 
   const avisos = problemas.filter((p) => p.nivel === 'aviso')
   const errores = problemas.filter((p) => p.nivel === 'error')
@@ -387,198 +342,22 @@ export function NuevaOrden() {
 
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-4">
-          <Tarjeta titulo="Datos del pedido">
-            {/* El tipo va primero porque cambia el resto del formulario. */}
-            <div className="mb-4 flex gap-2">
-              {(['delivery', 'pickup'] as TipoOrden[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => {
-                    setForm({ ...form, tipo: t })
-                    // Si había un pago con una forma que el pick up no admite,
-                    // se reencauza en vez de quedar en un estado imposible.
-                    if (t === 'pickup') {
-                      setPagos((previos) =>
-                        previos.map((pago) =>
-                          METODOS_PICKUP.includes(pago.metodo)
-                            ? pago
-                            : { ...pago, metodo: 'efectivo_usd', moneda: monedaDeMetodo('efectivo_usd'), cuenta_id: null, banco_id: null, referencia: '' },
-                        ),
-                      )
-                    }
-                  }}
-                  className={`min-h-12 flex-1 rounded-lg border-2 px-4 font-bold transition-colors ${
-                    form.tipo === t
-                      ? 'border-marca-600 bg-marca-50 text-marca-800'
-                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  {ETIQUETA_TIPO[t]}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Campo
-                etiqueta="N° de factura"
-                requerido
-                error={
-                  facturaDuplicada
-                    ? 'Ese número ya está cargado hoy.'
-                    : tocado
-                      ? erroresPorCampo.numero_factura
-                      : undefined
-                }
-                ayuda="El que emite la tablet de comandas"
-              >
-                <Entrada
-                  ref={refFactura}
-                  value={form.numero_factura}
-                  onChange={(e) => setForm({ ...form, numero_factura: e.target.value })}
-                  inputMode="numeric"
-                  autoFocus
-                />
-              </Campo>
-
-              <Campo
-                etiqueta="Nombre del cliente"
-                requerido
-                error={tocado ? erroresPorCampo.cliente_nombre : undefined}
-                ayuda="Como aparece en WhatsApp"
-              >
-                <Entrada
-                  value={form.cliente_nombre}
-                  onChange={(e) => setForm({ ...form, cliente_nombre: e.target.value })}
-                  placeholder="Ej: María Rodríguez"
-                />
-              </Campo>
-
-              <Campo etiqueta="Teléfono">
-                <Entrada
-                  value={form.cliente_telefono}
-                  onChange={(e) => setForm({ ...form, cliente_telefono: e.target.value })}
-                  inputMode="tel"
-                  placeholder="Opcional"
-                />
-              </Campo>
-
-              <Campo etiqueta="Monto del pedido ($)" requerido error={tocado ? erroresPorCampo.monto_pedido_usd : undefined}
-                ayuda="Sin el delivery">
-                <Entrada
-                  value={form.monto_pedido_usd}
-                  onChange={(e) => setForm({ ...form, monto_pedido_usd: e.target.value })}
-                  inputMode="decimal"
-                  placeholder="0,00"
-                />
-              </Campo>
-
-              {form.tipo === 'delivery' && (
-              <Campo
-                etiqueta="Dirección o referencia"
-                ayuda="Opcional. Si mandó el location, puedes pegar aquí el enlace"
-                className="sm:col-span-2"
-              >
-                <Entrada
-                  value={form.direccion}
-                  onChange={(e) => setForm({ ...form, direccion: e.target.value })}
-                  placeholder="Opcional"
-                />
-              </Campo>
-              )}
-
-              {form.tipo === 'delivery' && (
-              <Campo
-                etiqueta="Zona"
-                requerido
-                error={tocado ? erroresPorCampo.zona_id : undefined}
-                ayuda="Escribe parte del nombre; la tarifa sale sola"
-              >
-                <SelectorZona
-                  zonas={zonasActivas}
-                  valor={form.zona_id}
-                  onCambiar={(zonaId) => setForm({ ...form, zona_id: zonaId })}
-                  error={tocado ? erroresPorCampo.zona_id : undefined}
-                />
-              </Campo>
-              )}
-
-              {form.tipo === 'delivery' && (
-                <Campo etiqueta="Repartidor" ayuda="Se puede asignar después, cuando se sepa quién la lleva">
-                  <Seleccion
-                    value={form.repartidor_id}
-                    onChange={(e) => setForm({ ...form, repartidor_id: e.target.value })}
-                  >
-                    <option value="">— Todavía no se sabe —</option>
-                    {repartidores
-                      .filter((r) => r.activo)
-                      .map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.nombre}
-                        </option>
-                      ))}
-                  </Seleccion>
-                </Campo>
-              )}
-
-              <Campo etiqueta="Notas" className="sm:col-span-2">
-                <AreaTexto
-                  value={form.notas}
-                  onChange={(e) => setForm({ ...form, notas: (e.target as HTMLTextAreaElement).value })}
-                  placeholder="Opcional"
-                />
-              </Campo>
-            </div>
-          </Tarjeta>
-
-          <Tarjeta
-            titulo="Pagos"
-            acciones={
-              <Boton variante="secundario" onClick={() => setPagos([...pagos, pagoVacio()])} className="min-h-10 text-sm">
-                + Otro pago
-              </Boton>
-            }
-          >
-            <div className="space-y-3">
-              {pagos.map((pago, i) => (
-                <FilaPago
-                  key={pago.clave}
-                  pago={pago}
-                  indice={i}
-                  metodos={form.tipo === 'pickup' ? METODOS_PICKUP : undefined}
-                  cuentas={cuentas}
-                  bancos={bancos}
-                  errores={tocado ? erroresPorCampo : {}}
-                  choque={choques[pago.clave]}
-                  onCambiar={(cambios) =>
-                    setPagos(pagos.map((p) => (p.clave === pago.clave ? { ...p, ...cambios } : p)))
-                  }
-                  onEliminar={() => setPagos(pagos.filter((p) => p.clave !== pago.clave))}
-                />
-              ))}
-              {pagos.length === 0 && (
-                <Alerta tono="error">Agrega al menos un pago antes de guardar.</Alerta>
-              )}
-
-              {/* Que un cliente pague una parte por pago móvil y el resto en
-                  dólares es de todos los días, pero "+ Otro pago" arriba no lo
-                  sugiere. Cuando falta plata se ofrece aquí, con el monto ya
-                  puesto: es el momento exacto en que hace falta. */}
-              {faltaPorCobrar > 0.01 && (
-                <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-3">
-                  <p className="font-semibold text-amber-900">
-                    Faltan {formatearUSD(faltaPorCobrar)} ({formatearBS(faltaPorCobrar * tasa)}) por cubrir.
-                  </p>
-                  <p className="mt-0.5 text-sm text-amber-800">
-                    ¿Pagó el resto de otra forma? Agrégalo y el cuadre cierra solo.
-                  </p>
-                  <Boton className="mt-2" onClick={agregarPagoDelResto}>
-                    + Agregar los {formatearUSD(faltaPorCobrar)} que faltan
-                  </Boton>
-                </div>
-              )}
-            </div>
-          </Tarjeta>
+          <FormularioOrden
+            form={form}
+            setForm={setForm}
+            pagos={pagos}
+            setPagos={setPagos}
+            faltaPorCobrar={faltaPorCobrar}
+            tasa={tasa}
+            zonasActivas={zonasActivas}
+            repartidores={repartidores}
+            cuentas={cuentas}
+            bancos={bancos}
+            choques={choques}
+            errores={tocado ? erroresPorCampo : {}}
+            facturaDuplicada={facturaDuplicada}
+            refFactura={refFactura}
+          />
         </div>
 
         {/* Panel de cuadre: siempre visible mientras se teclea, para no

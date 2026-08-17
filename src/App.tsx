@@ -7,6 +7,7 @@ import { Login } from './paginas/Login'
 import { NuevaOrden } from './paginas/NuevaOrden'
 import { Asignar } from './paginas/Asignar'
 import { OrdenesDelDia } from './paginas/OrdenesDelDia'
+import { EditarOrden } from './paginas/EditarOrden'
 import { Verificacion } from './paginas/Verificacion'
 import { Cierre } from './paginas/Cierre'
 import { Liquidacion } from './paginas/Liquidacion'
@@ -49,6 +50,14 @@ function Rutas() {
           }
         />
         <Route path="/ordenes" element={<OrdenesDelDia />} />
+        <Route
+          path="/orden/:id"
+          element={
+            <SoloRol roles={['cajera', 'admin']}>
+              <EditarOrden />
+            </SoloRol>
+          }
+        />
         <Route
           path="/verificar"
           element={

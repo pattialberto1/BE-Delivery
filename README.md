@@ -43,6 +43,10 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
   resto en dólares, la app detecta lo que falta y ofrece agregarlo con el monto
   y la forma ya propuestos. Cada orden guarda sus pagos por separado, así que el
   cierre y la liquidación saben con qué plata entró cada carrera.
+- **Editar una orden ya cargada**: número de factura, cliente, zona, montos,
+  repartidor y pagos. Usa el mismo formulario que la pantalla de carga, así que
+  las reglas son idénticas — cambiar la zona recalcula la tarifa sola. Una orden
+  ya verificada solo la modifica la administradora.
 - **Registra en cuál de nuestras cuentas cayó cada pago** (la columna «BANCO»
   del papel), que es el dato que dice en qué banco meterse a confirmarlo.
 - **Verificación**: la administradora ve la captura del pago al lado de lo que
