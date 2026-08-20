@@ -9,12 +9,18 @@ import {
   formatearUSD,
   TOLERANCIA_DESCUADRE_USD,
 } from '../lib/reglas'
-import { ETIQUETA_METODO, type Cierre as CierreRegistro, type MetodoPago, type TotalesCierre } from '../lib/tipos'
+import {
+  ETIQUETA_METODO,
+  type Cierre as CierreRegistro,
+  type MetodoPago,
+  type Pago,
+  type TotalesCierre,
+} from '../lib/tipos'
 import { exportarCierre } from '../lib/exportar'
 import { Alerta, Boton, Cargando, ContenedorTabla, Dato, Entrada, Tarjeta } from '../componentes/UI'
 
 export function Cierre() {
-  const { hoy, esAdmin, usuario } = useSesion()
+  const { hoy, esAdmin, usuario, bancos, cuentas } = useSesion()
   const [fecha, setFecha] = useState(hoy)
   const { ordenes, cargando, recargar } = useOrdenes(fecha)
   const [cierre, setCierre] = useState<CierreRegistro | null>(null)
@@ -30,39 +36,66 @@ export function Cierre() {
     void cargarCierre()
   }, [cargarCierre])
 
-  // Los totales por forma de pago hay que sacarlos de la tabla `pagos`: la
-  // vista de órdenes solo trae el total, no cómo se compuso.
-  const [porMetodo, setPorMetodo] = useState<TotalesCierre['por_metodo']>({})
+  // Los pagos hay que traerlos de su tabla: la vista de órdenes solo trae el
+  // total, no cómo se compuso ni con qué referencia entró cada uno.
+  const [pagos, setPagos] = useState<Pago[]>([])
 
   useEffect(() => {
     async function cargar() {
       const ids = ordenes.map((o) => o.id)
       if (ids.length === 0) {
-        setPorMetodo({})
+        setPagos([])
         return
       }
-      const { data } = await supabase.from('pagos').select('metodo, monto, moneda, orden_id').in('orden_id', ids)
-      if (!data) return
-
-      const tasaPorOrden = new Map(ordenes.map((o) => [o.id, Number(o.tasa_bs_por_usd)]))
-      const resumen: TotalesCierre['por_metodo'] = {}
-
-      for (const pago of data as Array<{ metodo: MetodoPago; monto: number; moneda: string; orden_id: string }>) {
-        const fila = (resumen[pago.metodo] ??= { cantidad: 0, monto_bs: 0, monto_usd: 0 })
-        const monto = Number(pago.monto)
-        const tasa = tasaPorOrden.get(pago.orden_id) ?? 0
-        fila.cantidad += 1
-        if (pago.moneda === 'USD') {
-          fila.monto_usd += monto
-        } else {
-          fila.monto_bs += monto
-          if (tasa > 0) fila.monto_usd += monto / tasa
-        }
-      }
-      setPorMetodo(resumen)
+      const { data } = await supabase.from('pagos').select('*').in('orden_id', ids).order('creado_en')
+      setPagos((data as Pago[]) ?? [])
     }
     void cargar()
   }, [ordenes])
+
+  const porMetodo = useMemo(() => {
+    const tasaPorOrden = new Map(ordenes.map((o) => [o.id, Number(o.tasa_bs_por_usd)]))
+    const resumen: TotalesCierre['por_metodo'] = {}
+
+    for (const pago of pagos) {
+      const fila = (resumen[pago.metodo] ??= { cantidad: 0, monto_bs: 0, monto_usd: 0 })
+      const monto = Number(pago.monto)
+      const tasa = tasaPorOrden.get(pago.orden_id) ?? 0
+      fila.cantidad += 1
+      if (pago.moneda === 'USD') {
+        fila.monto_usd += monto
+      } else {
+        fila.monto_bs += monto
+        if (tasa > 0) fila.monto_usd += monto / tasa
+      }
+    }
+    return resumen
+  }, [ordenes, pagos])
+
+  /**
+   * Cada pago con su factura, su cliente y los nombres de cuenta y banco.
+   *
+   * El pago solo guarda identificadores y la vista de órdenes no trae pagos, así
+   * que el cruce se hace acá. Va ordenado por correlativo de factura, que es
+   * como se revisa contra el banco, y sirve igual para la tabla en pantalla y
+   * para la hoja del Excel.
+   */
+  const pagosDelDia = useMemo(() => {
+    const nombreCuenta = new Map(cuentas.map((c) => [c.id, c.nombre]))
+    const nombreBanco = new Map(bancos.map((b) => [b.id, b.nombre]))
+    const porId = new Map(ordenes.map((o) => [o.id, o]))
+
+    return pagos
+      .map((pago) => ({
+        ...pago,
+        monto: Number(pago.monto),
+        cuenta: pago.cuenta_id ? (nombreCuenta.get(pago.cuenta_id) ?? null) : null,
+        banco: pago.banco_id ? (nombreBanco.get(pago.banco_id) ?? null) : null,
+        factura: porId.get(pago.orden_id)?.numero_factura ?? '',
+        cliente: porId.get(pago.orden_id)?.cliente_nombre ?? '',
+      }))
+      .sort((a, b) => a.factura.localeCompare(b.factura, 'es', { numeric: true }))
+  }, [pagos, cuentas, bancos, ordenes])
 
   // Los pick up entran en la caja pero no son delivery: no llevan tarifa ni
   // repartidor, así que no pueden contarse como carreras.
@@ -150,7 +183,7 @@ export function Cierre() {
               variante="secundario"
               className="min-h-10 text-sm"
               disabled={ordenes.length === 0}
-              onClick={() => void exportarCierre(fecha, ordenes, totales, tasaDelDia)}
+              onClick={() => void exportarCierre(fecha, ordenes, totales, tasaDelDia, pagosDelDia)}
             >
               Bajar Excel
             </Boton>
@@ -206,6 +239,53 @@ export function Cierre() {
               {Object.keys(porMetodo).length === 0 && (
                 <tr>
                   <td colSpan={4} className="py-6 text-center text-slate-500">
+                    No hay pagos cargados en esta jornada.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </ContenedorTabla>
+      </Tarjeta>
+
+      {/*
+        La lista de referencias es lo que reemplaza a la hoja de papel: la
+        administradora entra al banco, busca la referencia y la tacha. Por eso
+        va en la pantalla y no solo en el Excel — esta pantalla se imprime.
+      */}
+      <Tarjeta titulo={`Pagos recibidos (${pagos.length})`}>
+        <ContenedorTabla>
+          <table className="w-full min-w-[46rem] text-sm">
+            <thead>
+              <tr className="border-b border-slate-300 text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="py-2 pr-3">Factura</th>
+                <th className="py-2 pr-3">Cliente</th>
+                <th className="py-2 pr-3">Forma de pago</th>
+                <th className="py-2 pr-3">Cuenta</th>
+                <th className="py-2 pr-3">Banco del cliente</th>
+                <th className="py-2 pr-3">Referencia</th>
+                <th className="py-2 text-right">Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagosDelDia.map((pago) => (
+                <tr key={pago.id} className="border-b border-slate-100">
+                  <td className="py-2 pr-3 font-semibold tabular-nums">{pago.factura}</td>
+                  <td className="py-2 pr-3">{pago.cliente}</td>
+                  <td className="py-2 pr-3">{ETIQUETA_METODO[pago.metodo] ?? pago.metodo}</td>
+                  <td className="py-2 pr-3 text-slate-600">{pago.cuenta ?? '—'}</td>
+                  <td className="py-2 pr-3 text-slate-600">{pago.banco ?? '—'}</td>
+                  <td className="py-2 pr-3 font-mono tabular-nums">
+                    {pago.referencia ?? <span className="font-sans text-slate-400">—</span>}
+                  </td>
+                  <td className="py-2 text-right font-semibold tabular-nums">
+                    {pago.moneda === 'USD' ? formatearUSD(pago.monto) : formatearBS(pago.monto)}
+                  </td>
+                </tr>
+              ))}
+              {pagos.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center text-slate-500">
                     No hay pagos cargados en esta jornada.
                   </td>
                 </tr>

@@ -5,7 +5,9 @@ import {
   hayMargenDeDelivery,
   liquidacionDesdeOrdenes,
   pagoPorMoneda,
+  referenciasDeOrden,
   resumenMonedas,
+  type PagoDelCierre,
 } from './exportar'
 import type { LiquidacionRepartidor, OrdenDetalle } from './tipos'
 
@@ -246,5 +248,48 @@ describe('consolidarLiquidacion', () => {
     const original = fila({ carreras: 3 })
     consolidarLiquidacion([original, fila({ fecha_operativa: '2026-08-13' })])
     expect(original.carreras).toBe(3)
+  })
+})
+
+describe('referenciasDeOrden', () => {
+  function pago(parcial: Partial<PagoDelCierre> = {}): PagoDelCierre {
+    return {
+      orden_id: 'o-1',
+      metodo: 'pago_movil',
+      referencia: '004521887730',
+      emisor: '0414-1234567',
+      monto: 1000,
+      moneda: 'BS',
+      cuenta: 'Banesco principal',
+      banco: 'Banesco',
+      ...parcial,
+    }
+  }
+
+  it('junta las referencias de una orden pagada de dos formas', () => {
+    const mapa = referenciasDeOrden([pago({ referencia: '1111' }), pago({ referencia: '2222' })])
+    expect(mapa.get('o-1')).toBe('1111 · 2222')
+  })
+
+  it('deja fuera el efectivo, que no tiene referencia', () => {
+    const mapa = referenciasDeOrden([
+      pago({ referencia: '1111' }),
+      pago({ metodo: 'efectivo_usd', referencia: null, moneda: 'USD' }),
+    ])
+    expect(mapa.get('o-1')).toBe('1111')
+  })
+
+  it('no inventa una entrada para la orden que solo se pagó en efectivo', () => {
+    const mapa = referenciasDeOrden([pago({ metodo: 'efectivo_usd', referencia: null, moneda: 'USD' })])
+    expect(mapa.has('o-1')).toBe(false)
+  })
+
+  it('separa las referencias de órdenes distintas', () => {
+    const mapa = referenciasDeOrden([
+      pago({ orden_id: 'o-1', referencia: '1111' }),
+      pago({ orden_id: 'o-2', referencia: '2222' }),
+    ])
+    expect(mapa.get('o-1')).toBe('1111')
+    expect(mapa.get('o-2')).toBe('2222')
   })
 })

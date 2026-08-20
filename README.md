@@ -61,7 +61,9 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
 - **Dos reportes de Excel distintos**, porque responden preguntas distintas:
   - **Cierre** — cómo cerró el día: totales en dólares y bolívares, desglose por
     forma de pago y por zona, y una lista de lo que quedó por revisar. El
-    detalle de las órdenes va en su propia hoja.
+    detalle de las órdenes va en su propia hoja, y los pagos en otra: un renglón
+    por transacción con **su número de referencia**, la cuenta que la recibió y
+    el banco del cliente, que es lo que se va tachando contra el banco.
   - **Liquidación** — a quién pagarle cuánto: agrupada por repartidor, con sus
     carreras listadas debajo y el subtotal de cada uno, más una hoja de resumen
     de una línea por persona con el monto en dólares partido en tres: lo que

@@ -5,11 +5,47 @@ import {
   ETIQUETA_TIPO,
   type LiquidacionRepartidor,
   type MetodoPago,
+  type Moneda,
   type OrdenDetalle,
   type TotalesCierre,
 } from './tipos'
 import { detectarSaltosDeFactura, formatearFecha, monedaDeCobro, TOLERANCIA_DESCUADRE_USD } from './reglas'
 import { ETIQUETA_MONEDA_COBRO } from './tipos'
+
+/**
+ * Un pago del día con los nombres ya resueltos.
+ *
+ * Las tablas guardan `cuenta_id` y `banco_id`; el reporte necesita los nombres,
+ * y los catálogos viven en la sesión, así que la traducción se hace en la
+ * pantalla y aquí llega lista para escribir.
+ */
+export interface PagoDelCierre {
+  orden_id: string
+  metodo: MetodoPago
+  referencia: string | null
+  emisor: string | null
+  monto: number
+  moneda: Moneda
+  /** Cuenta nuestra donde cayó la plata: la columna «BANCO» del papel. */
+  cuenta: string | null
+  /** Banco desde el que el cliente lo mandó. */
+  banco: string | null
+}
+
+/**
+ * Las referencias de cada orden, juntas en un texto.
+ *
+ * Sirve para la columna del detalle, donde hay una sola fila por orden aunque
+ * el cliente haya pagado de dos formas.
+ */
+export function referenciasDeOrden(pagos: PagoDelCierre[]): Map<string, string> {
+  const mapa = new Map<string, string[]>()
+  for (const pago of pagos) {
+    if (!pago.referencia) continue
+    mapa.set(pago.orden_id, [...(mapa.get(pago.orden_id) ?? []), pago.referencia])
+  }
+  return new Map([...mapa].map(([id, refs]) => [id, refs.join(' · ')]))
+}
 
 /**
  * Cuenta las carreras por la moneda con la que se cobraron.
@@ -94,7 +130,7 @@ function encabezados(textos: string[]): Row {
     backgroundColor: GRIS_CLARO,
     bottomBorderStyle: 'thin',
     bottomBorderColor: GRIS_BORDE,
-    align: texto.includes('$') || texto === 'Cantidad' || texto === 'Mixtas' || texto.startsWith('Carreras')
+    align: texto.includes('$') || texto === 'Cantidad' || texto === 'Monto' || texto === 'Mixtas' || texto.startsWith('Carreras')
       ? 'right'
       : 'left',
   })) as Row
@@ -139,6 +175,7 @@ export async function exportarCierre(
   ordenes: OrdenDetalle[],
   totales: TotalesCierre,
   tasa: number,
+  pagos: PagoDelCierre[] = [],
 ) {
   const conMargen = Math.abs(totales.margen_delivery_usd) >= 0.01
   const filas: Row[] = [
@@ -256,7 +293,13 @@ export async function exportarCierre(
   await writeXlsxFile(
     [
       { data: filas, sheet: 'Cierre', columns: ANCHOS_CIERRE },
-      { data: hojaDetalle(ordenes), sheet: 'Detalle', columns: ANCHOS_DETALLE, stickyRowsCount: 1 },
+      {
+        data: hojaDetalle(ordenes, referenciasDeOrden(pagos)),
+        sheet: 'Detalle',
+        columns: ANCHOS_DETALLE,
+        stickyRowsCount: 1,
+      },
+      { data: hojaPagos(ordenes, pagos, tasa), sheet: 'Pagos', columns: ANCHOS_PAGOS, stickyRowsCount: 1 },
     ],
     { fontFamily: 'Calibri', fontSize: 11 },
   ).toFile(`cierre-${fecha}.xlsx`)
@@ -278,9 +321,10 @@ const ANCHOS_DETALLE = [
   { width: 11 },
   { width: 12 },
   { width: 12 },
+  { width: 26 },
 ]
 
-function hojaDetalle(ordenes: OrdenDetalle[]): Row[] {
+function hojaDetalle(ordenes: OrdenDetalle[], referencias: Map<string, string>): Row[] {
   const filas: Row[] = [
     encabezados([
       'Factura',
@@ -296,6 +340,7 @@ function hojaDetalle(ordenes: OrdenDetalle[]): Row[] {
       'Pagado $',
       'Diferencia $',
       'Estado',
+      'Referencia(s)',
     ]),
   ]
 
@@ -327,8 +372,112 @@ function hojaDetalle(ordenes: OrdenDetalle[]): Row[] {
         textColor: descuadrada ? ROJO : undefined,
       },
       texto(ETIQUETA_ESTADO[orden.estado]),
+      // Como texto a propósito: una referencia de doce dígitos guardada como
+      // número perdería los ceros de adelante y Excel la mostraría en notación
+      // científica, que es justo el dato que hay que poder buscar y cotejar.
+      texto(referencias.get(orden.id) ?? ''),
     ])
   }
+
+  return filas
+}
+
+// --- Pagos recibidos --------------------------------------------------------
+
+const ANCHOS_PAGOS = [
+  { width: 11 },
+  { width: 24 },
+  { width: 18 },
+  { width: 20 },
+  { width: 20 },
+  { width: 20 },
+  { width: 16 },
+  { width: 14 },
+  { width: 9 },
+  { width: 14 },
+]
+
+/**
+ * Un renglón por pago, con su referencia.
+ *
+ * Es la hoja que reemplaza al papel: la administradora entra al banco, busca la
+ * referencia y la tacha. Va aparte del detalle porque una orden puede tener dos
+ * pagos —parte pago móvil, parte efectivo— y meterlos en la misma fila obligaría
+ * a elegir cuál referencia mostrar.
+ */
+function hojaPagos(ordenes: OrdenDetalle[], pagos: PagoDelCierre[], tasa: number): Row[] {
+  const porId = new Map(ordenes.map((orden) => [orden.id, orden]))
+
+  const filas: Row[] = [
+    encabezados([
+      'Factura',
+      'Cliente',
+      'Forma de pago',
+      'Cuenta que recibió',
+      'Banco del cliente',
+      'Referencia',
+      'Teléfono o cédula',
+      'Monto',
+      'Moneda',
+      'Equivalente $',
+    ]),
+  ]
+
+  const ordenados = [...pagos].sort((a, b) => {
+    const facturaA = porId.get(a.orden_id)?.numero_factura ?? ''
+    const facturaB = porId.get(b.orden_id)?.numero_factura ?? ''
+    return facturaA.localeCompare(facturaB, 'es', { numeric: true })
+  })
+
+  let totalUsd = 0
+
+  for (const pago of ordenados) {
+    const orden = porId.get(pago.orden_id)
+    const monto = Number(pago.monto)
+    const tasaDelPago = Number(orden?.tasa_bs_por_usd) || tasa
+    const enUsd = pago.moneda === 'USD' ? monto : tasaDelPago > 0 ? monto / tasaDelPago : 0
+    totalUsd += enUsd
+
+    filas.push([
+      texto(orden?.numero_factura ?? ''),
+      texto(orden?.cliente_nombre ?? ''),
+      texto(ETIQUETA_METODO[pago.metodo] ?? pago.metodo),
+      texto(pago.cuenta),
+      texto(pago.banco),
+      // Texto, no número: ver el comentario de la hoja de detalle.
+      pago.referencia ? texto(pago.referencia) : { value: '—', type: String, textColor: '#94A3B8' },
+      texto(pago.emisor),
+      dinero(monto),
+      texto(pago.moneda === 'USD' ? '$' : 'Bs'),
+      dinero(enUsd),
+    ])
+  }
+
+  if (ordenados.length === 0) {
+    filas.push([{ value: 'No hay pagos cargados en esta jornada.', type: String, columnSpan: 10 }])
+    return filas
+  }
+
+  filas.push([
+    texto('Total', true),
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    {
+      value: totalUsd,
+      type: Number,
+      format: DINERO,
+      align: 'right',
+      fontWeight: 'bold',
+      topBorderStyle: 'thin',
+      topBorderColor: GRIS_BORDE,
+    },
+  ])
 
   return filas
 }
