@@ -23,6 +23,20 @@ export function carrerasPorMoneda(ordenes: OrdenDetalle[]) {
   return conteo
 }
 
+/**
+ * Suma cuánto hay que pagarle al repartidor por cada moneda de cobro.
+ *
+ * El pago al repartidor está tarifado en dólares, cobre lo que cobre el cliente,
+ * así que las cuatro cifras salen en dólares: la pregunta que responde no es
+ * «cuánto vale en Bs» sino «de este total, qué parte corresponde a carreras que
+ * entraron en bolívares», que es lo que decide con qué plata se le paga.
+ */
+export function pagoPorMoneda(ordenes: OrdenDetalle[]) {
+  const total = { USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0 }
+  for (const orden of ordenes) total[monedaDeCobro(orden)] += Number(orden.pago_repartidor_usd)
+  return total
+}
+
 /** Resume el conteo en una línea legible, omitiendo lo que no ocurrió. */
 export function resumenMonedas(ordenes: OrdenDetalle[]): string {
   const conteo = carrerasPorMoneda(ordenes)
@@ -80,7 +94,9 @@ function encabezados(textos: string[]): Row {
     backgroundColor: GRIS_CLARO,
     bottomBorderStyle: 'thin',
     bottomBorderColor: GRIS_BORDE,
-    align: texto.includes('$') || texto === 'Cantidad' || texto === 'Carreras' ? 'right' : 'left',
+    align: texto.includes('$') || texto === 'Cantidad' || texto === 'Mixtas' || texto.startsWith('Carreras')
+      ? 'right'
+      : 'left',
   })) as Row
 }
 
@@ -438,31 +454,65 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
   }
 
   // Hoja de resumen: una línea por repartidor, para firmar y pagar.
-  const resumen: Row[] = [
-    titulo('Resumen de pago', 6),
-    subtitulo(rango, 6),
-    FILA_VACIA,
-    encabezados(['Repartidor', 'Carreras', 'En dólares', 'En bolívares', 'Mixtas', 'A pagar $']),
+  //
+  // Lo que se le paga sale siempre en dólares —la tarifa por zona está en
+  // dólares—, pero separado según con qué plata entró cada carrera: así se sabe
+  // cuánto de ese total conviene pagarlo con los dólares de la caja y cuánto con
+  // lo que entró en bolívares.
+  //
+  // Las mixtas (parte pago móvil, parte efectivo) solo agregan su par de
+  // columnas si alguna ocurrió; si no, serían dos columnas de ceros.
+  const totalConteo = carrerasPorMoneda(conRepartidor)
+  const hayMixtas = totalConteo.MIXTO > 0 || totalConteo.SIN_PAGO > 0
+
+  const cabecerasResumen = [
+    'Repartidor',
+    'Carreras',
+    'Carreras en $',
+    'A pagar por esas $',
+    'Carreras en Bs',
+    'A pagar por esas $',
+    ...(hayMixtas ? ['Carreras mixtas', 'A pagar por esas $'] : []),
+    'TOTAL a pagar $',
   ]
+
+  const resumen: Row[] = [
+    titulo('Resumen de pago', cabecerasResumen.length),
+    subtitulo(rango, cabecerasResumen.length),
+    subtitulo('Todos los montos en dólares, agrupados según con qué moneda cobró el cliente.', cabecerasResumen.length),
+    FILA_VACIA,
+    encabezados(cabecerasResumen),
+  ]
+
   for (const nombre of [...porRepartidor.keys()].sort((a, b) => a.localeCompare(b, 'es'))) {
     const suyas = porRepartidor.get(nombre)!
     const conteo = carrerasPorMoneda(suyas)
+    const pagar = pagoPorMoneda(suyas)
     resumen.push([
       texto(nombre),
       entero(suyas.length),
       entero(conteo.USD),
+      dinero(pagar.USD),
       entero(conteo.BS),
-      entero(conteo.MIXTO),
-      dinero(suyas.reduce((suma, o) => suma + Number(o.pago_repartidor_usd), 0)),
+      dinero(pagar.BS),
+      ...(hayMixtas
+        ? [entero(conteo.MIXTO + conteo.SIN_PAGO), dinero(pagar.MIXTO + pagar.SIN_PAGO)]
+        : []),
+      dinero(suyas.reduce((suma, o) => suma + Number(o.pago_repartidor_usd), 0), true),
     ])
   }
-  const totalConteo = carrerasPorMoneda(conRepartidor)
+
+  const totalPagar = pagoPorMoneda(conRepartidor)
   resumen.push([
     texto('Total', true),
     entero(carrerasGenerales, true),
     entero(totalConteo.USD, true),
+    dinero(totalPagar.USD, true),
     entero(totalConteo.BS, true),
-    entero(totalConteo.MIXTO, true),
+    dinero(totalPagar.BS, true),
+    ...(hayMixtas
+      ? [entero(totalConteo.MIXTO + totalConteo.SIN_PAGO, true), dinero(totalPagar.MIXTO + totalPagar.SIN_PAGO, true)]
+      : []),
     dinero(totalGeneral, true),
   ])
 
@@ -472,7 +522,16 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
       {
         data: resumen,
         sheet: 'Resumen',
-        columns: [{ width: 26 }, { width: 11 }, { width: 12 }, { width: 13 }, { width: 10 }, { width: 14 }],
+        columns: [
+          { width: 26 },
+          { width: 10 },
+          { width: 13 },
+          { width: 18 },
+          { width: 14 },
+          { width: 18 },
+          ...(hayMixtas ? [{ width: 15 }, { width: 18 }] : []),
+          { width: 16 },
+        ],
       },
     ],
     { fontFamily: 'Calibri', fontSize: 11 },

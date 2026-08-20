@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { carrerasPorMoneda, consolidarLiquidacion, hayMargenDeDelivery, liquidacionDesdeOrdenes, resumenMonedas } from './exportar'
+import {
+  carrerasPorMoneda,
+  consolidarLiquidacion,
+  hayMargenDeDelivery,
+  liquidacionDesdeOrdenes,
+  pagoPorMoneda,
+  resumenMonedas,
+} from './exportar'
 import type { LiquidacionRepartidor, OrdenDetalle } from './tipos'
 
 /**
@@ -124,8 +131,41 @@ describe('carrerasPorMoneda', () => {
     expect(resumenMonedas([enDolares, enDolares, enBolivares])).toBe('2 en dólares · 1 en bolívares')
   })
 
+  it('separa en dólares cuánto hay que pagar por cada moneda de cobro', () => {
+    // El pago al repartidor está tarifado en dólares aunque el cliente haya
+    // pagado en bolívares: lo que cambia es de qué caja sale la plata.
+    const pagar = pagoPorMoneda([
+      orden({ pagado_divisa_usd: 12, pagado_bs: 0, pago_repartidor_usd: 1.5 }),
+      orden({ pagado_divisa_usd: 12, pagado_bs: 0, pago_repartidor_usd: 2.5 }),
+      orden({ pagado_divisa_usd: 0, pagado_bs: 480, pago_repartidor_usd: 3 }),
+    ])
+    expect(pagar.USD).toBe(4)
+    expect(pagar.BS).toBe(3)
+    expect(pagar.MIXTO).toBe(0)
+  })
+
+  it('no mete la mixta en ninguna de las dos columnas', () => {
+    const pagar = pagoPorMoneda([orden({ pagado_divisa_usd: 5, pagado_bs: 280, pago_repartidor_usd: 2 })])
+    expect(pagar.MIXTO).toBe(2)
+    expect(pagar.USD).toBe(0)
+    expect(pagar.BS).toBe(0)
+  })
+
+  it('lo separado por moneda suma el total a pagar', () => {
+    const ordenes = [
+      orden({ pagado_divisa_usd: 12, pagado_bs: 0, pago_repartidor_usd: 1.5 }),
+      orden({ pagado_divisa_usd: 0, pagado_bs: 480, pago_repartidor_usd: 3 }),
+      orden({ pagado_divisa_usd: 5, pagado_bs: 280, pago_repartidor_usd: 2 }),
+      orden({ pagado_divisa_usd: 0, pagado_bs: 0, pago_repartidor_usd: 1 }),
+    ]
+    const pagar = pagoPorMoneda(ordenes)
+    const total = ordenes.reduce((suma, o) => suma + o.pago_repartidor_usd, 0)
+    expect(pagar.USD + pagar.BS + pagar.MIXTO + pagar.SIN_PAGO).toBeCloseTo(total, 2)
+  })
+
   it('devuelve todo en cero sin órdenes', () => {
     expect(carrerasPorMoneda([])).toEqual({ USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0 })
+    expect(pagoPorMoneda([])).toEqual({ USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0 })
   })
 })
 

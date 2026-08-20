@@ -236,6 +236,19 @@ const SEMILLAS: SemillaOrden[] = [
     divisaUsd: 10,
     verificada: false,
   },
+  // Todo en efectivo en dólares: es la carrera que se le paga al repartidor con
+  // los dólares de la caja, no con lo que entró por pago móvil.
+  {
+    factura: '45371',
+    cliente: 'Elena Navas',
+    telefono: '0424-5566778',
+    direccion: 'Maripérez, subida al teleférico',
+    zona: 'Maripérez',
+    repartidor: 'r2',
+    pedido: 16,
+    divisaUsd: 19,
+    verificada: false,
+  },
 ]
 
 export interface SemillaCargada {

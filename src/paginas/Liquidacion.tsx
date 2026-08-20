@@ -8,8 +8,28 @@ import {
   exportarLiquidacion,
   hayMargenDeDelivery,
   liquidacionDesdeOrdenes,
+  pagoPorMoneda,
 } from '../lib/exportar'
 import { Alerta, Boton, Cargando, ContenedorTabla, Dato, Entrada, Tarjeta, Vacio } from '../componentes/UI'
+
+/**
+ * Celda de una columna por moneda: el monto en dólares arriba y cuántas
+ * carreras lo componen debajo.
+ *
+ * El monto es lo que se paga, así que va primero; el conteo está para que el
+ * repartidor pueda cotejarlo contra sus carreras.
+ */
+function CeldaMoneda({ carreras, pagar }: { carreras: number; pagar: number }) {
+  if (carreras === 0) return <td className="py-2.5 pr-3 text-right text-slate-400">—</td>
+  return (
+    <td className="py-2.5 pr-3 text-right tabular-nums">
+      <div className="font-semibold text-slate-800">{formatearUSD(pagar)}</div>
+      <div className="text-xs font-normal text-slate-500">
+        {carreras} carrera{carreras === 1 ? '' : 's'}
+      </div>
+    </td>
+  )
+}
 
 /**
  * Liquidación de repartidores.
@@ -43,19 +63,27 @@ export function Liquidacion() {
 
   // Con qué plata se cobró cada carrera: al repartidor se le paga con lo que
   // entró, así que hay que poder separar las de dólares de las de bolívares.
-  const entregas = useMemo(() => ordenes.filter((o) => o.tipo !== 'pickup' && o.repartidor_id), [ordenes])
-  const monedasPorRepartidor = useMemo(() => {
-    const mapa = new Map<string, ReturnType<typeof carrerasPorMoneda>>()
-    for (const orden of entregas) {
-      const previo = mapa.get(orden.repartidor_id!) ?? { USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0 }
-      mapa.set(orden.repartidor_id!, previo)
-    }
-    for (const [id] of mapa) {
-      mapa.set(id, carrerasPorMoneda(entregas.filter((o) => o.repartidor_id === id)))
+  // Las anuladas quedan fuera, igual que en el total a pagar; contarlas aquí
+  // haría que las columnas por moneda no sumaran las carreras de la fila.
+  const entregas = useMemo(
+    () => ordenes.filter((o) => o.tipo !== 'pickup' && o.repartidor_id && o.estado !== 'anulada'),
+    [ordenes],
+  )
+  const desglosePorRepartidor = useMemo(() => {
+    const mapa = new Map<string, { carreras: ReturnType<typeof carrerasPorMoneda>; pagar: ReturnType<typeof pagoPorMoneda> }>()
+    for (const fila of consolidado) {
+      const suyas = entregas.filter((o) => o.repartidor_id === fila.repartidor_id)
+      mapa.set(fila.repartidor_id, { carreras: carrerasPorMoneda(suyas), pagar: pagoPorMoneda(suyas) })
     }
     return mapa
-  }, [entregas])
+  }, [consolidado, entregas])
   const totalMonedas = useMemo(() => carrerasPorMoneda(entregas), [entregas])
+  const totalPorMoneda = useMemo(() => pagoPorMoneda(entregas), [entregas])
+
+  // Las mixtas (parte pago móvil, parte dólares) y las que aún no tienen pago
+  // cargado solo ocupan columna si existen; si no, serían una columna de rayas.
+  const mixtas = totalMonedas.MIXTO + totalMonedas.SIN_PAGO
+  const pagarMixtas = totalPorMoneda.MIXTO + totalPorMoneda.SIN_PAGO
 
   const unSoloDia = desde === hasta
 
@@ -95,9 +123,31 @@ export function Liquidacion() {
           <Vacio>No hay carreras asignadas en este rango.</Vacio>
         ) : (
           <>
-            <div className={`mb-4 grid gap-3 ${conMargen ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+            {/* El total a pagar siempre va en dólares —así está tarifada cada
+                zona—, pero partido según con qué plata entró la carrera, que es
+                lo que decide de qué caja sale el pago. */}
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Dato etiqueta="Carreras" valor={totalCarreras} />
               <Dato etiqueta="Total a pagar" valor={formatearUSD(totalPagar)} tono="malo" />
+              <Dato
+                etiqueta="De carreras cobradas en $"
+                valor={formatearUSD(totalPorMoneda.USD)}
+                detalle={`${totalMonedas.USD} carrera${totalMonedas.USD === 1 ? '' : 's'}`}
+              />
+              <Dato
+                etiqueta="De carreras cobradas en Bs"
+                valor={formatearUSD(totalPorMoneda.BS)}
+                detalle={`${totalMonedas.BS} carrera${totalMonedas.BS === 1 ? '' : 's'}`}
+              />
+              {mixtas > 0 && (
+                <Dato
+                  etiqueta="De carreras mixtas"
+                  valor={formatearUSD(pagarMixtas)}
+                  detalle={
+                    mixtas === 1 ? '1 carrera pagada de dos formas' : `${mixtas} carreras pagadas de dos formas`
+                  }
+                />
+              )}
               {conMargen && (
                 <Dato
                   etiqueta="Margen del delivery"
@@ -109,13 +159,14 @@ export function Liquidacion() {
             </div>
 
             <ContenedorTabla>
-              <table className="w-full min-w-[38rem] text-sm">
+              <table className="w-full min-w-[44rem] text-sm">
                 <thead>
                   <tr className="border-b-2 border-slate-300 text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="py-2 pr-3">Repartidor</th>
                     <th className="py-2 pr-3 text-right">Carreras</th>
-                    <th className="py-2 pr-3 text-right">En $</th>
-                    <th className="py-2 pr-3 text-right">En Bs</th>
+                    <th className="py-2 pr-3 text-right">Cobradas en $</th>
+                    <th className="py-2 pr-3 text-right">Cobradas en Bs</th>
+                    {mixtas > 0 && <th className="py-2 pr-3 text-right">Mixtas</th>}
                     <th className="py-2 pr-3 text-right">A pagar</th>
                     {conMargen && (
                       <>
@@ -126,16 +177,21 @@ export function Liquidacion() {
                   </tr>
                 </thead>
                 <tbody>
-                  {consolidado.map((fila) => (
+                  {consolidado.map((fila) => {
+                    const suyo = desglosePorRepartidor.get(fila.repartidor_id)
+                    const suyasMixtas = (suyo?.carreras.MIXTO ?? 0) + (suyo?.carreras.SIN_PAGO ?? 0)
+                    return (
                     <tr key={fila.repartidor_id} className="border-b border-slate-100">
                       <td className="py-2.5 pr-3 font-semibold">{fila.repartidor}</td>
                       <td className="py-2.5 pr-3 text-right tabular-nums">{fila.carreras}</td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums text-slate-600">
-                        {monedasPorRepartidor.get(fila.repartidor_id)?.USD || '—'}
-                      </td>
-                      <td className="py-2.5 pr-3 text-right tabular-nums text-slate-600">
-                        {monedasPorRepartidor.get(fila.repartidor_id)?.BS || '—'}
-                      </td>
+                      <CeldaMoneda carreras={suyo?.carreras.USD ?? 0} pagar={suyo?.pagar.USD ?? 0} />
+                      <CeldaMoneda carreras={suyo?.carreras.BS ?? 0} pagar={suyo?.pagar.BS ?? 0} />
+                      {mixtas > 0 && (
+                        <CeldaMoneda
+                          carreras={suyasMixtas}
+                          pagar={(suyo?.pagar.MIXTO ?? 0) + (suyo?.pagar.SIN_PAGO ?? 0)}
+                        />
+                      )}
                       <td className="py-2.5 pr-3 text-right text-lg font-bold tabular-nums text-slate-900">
                         {formatearUSD(fila.total_pagar_usd)}
                       </td>
@@ -150,14 +206,16 @@ export function Liquidacion() {
                         </>
                       )}
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-slate-300 font-bold">
                     <td className="py-2.5 pr-3">Total</td>
                     <td className="py-2.5 pr-3 text-right tabular-nums">{totalCarreras}</td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums">{totalMonedas.USD || '—'}</td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums">{totalMonedas.BS || '—'}</td>
+                    <CeldaMoneda carreras={totalMonedas.USD} pagar={totalPorMoneda.USD} />
+                    <CeldaMoneda carreras={totalMonedas.BS} pagar={totalPorMoneda.BS} />
+                    {mixtas > 0 && <CeldaMoneda carreras={mixtas} pagar={pagarMixtas} />}
                     <td className="py-2.5 pr-3 text-right text-lg tabular-nums">{formatearUSD(totalPagar)}</td>
                     {conMargen && (
                       <>

@@ -54,14 +54,19 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
 - **Cierre del día**: totales por forma de pago, delivery cobrado, total a pagar
   a repartidores y margen. Al cerrar, la jornada queda congelada.
 - **Liquidación de repartidores**: cuántas carreras hizo cada uno y cuánto se le
-  debe, por día o por rango de fechas.
+  debe, por día o por rango de fechas. Lo que se le debe sale siempre en
+  dólares —así está tarifada cada zona— pero separado según con qué plata entró
+  la carrera, para saber cuánto de ese total conviene pagarlo con los dólares de
+  la caja y cuánto con lo que entró en bolívares.
 - **Dos reportes de Excel distintos**, porque responden preguntas distintas:
   - **Cierre** — cómo cerró el día: totales en dólares y bolívares, desglose por
     forma de pago y por zona, y una lista de lo que quedó por revisar. El
     detalle de las órdenes va en su propia hoja.
   - **Liquidación** — a quién pagarle cuánto: agrupada por repartidor, con sus
     carreras listadas debajo y el subtotal de cada uno, más una hoja de resumen
-    de una línea por persona.
+    de una línea por persona con el monto en dólares partido en tres: lo que
+    corresponde a carreras cobradas en dólares, lo de las cobradas en bolívares
+    y el total.
 
 ## De la hoja de papel a la app
 
