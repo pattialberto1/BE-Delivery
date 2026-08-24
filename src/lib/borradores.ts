@@ -12,6 +12,8 @@ import { monedaDeMetodo } from './reglas'
 /** Los campos de la orden que se teclean, sin los pagos. */
 export interface DatosFormulario {
   tipo: TipoOrden
+  /** Se facturó por la caja del local, con factura fiscal. */
+  facturada_aparte: boolean
   numero_factura: string
   cliente_nombre: string
   cliente_telefono: string
@@ -25,6 +27,7 @@ export interface DatosFormulario {
 export function formularioVacio(): DatosFormulario {
   return {
     tipo: 'delivery',
+    facturada_aparte: false,
     numero_factura: '',
     cliente_nombre: '',
     cliente_telefono: '',

@@ -136,8 +136,18 @@ export function fuerzaDeDuplicado(
  * que hay que saber qué carreras trajeron dólares y cuáles bolívares. Una orden
  * puede ser mixta —parte en efectivo y parte por pago móvil— y ese caso no se
  * puede forzar a una sola moneda sin mentir.
+ *
+ * La facturada aparte es su propia categoría, no una carrera «sin pago»: sí se
+ * cobró, pero por la caja del local, así que su carrera se paga con plata que
+ * no está en la caja del delivery. Meterla entre las otras haría creer que en
+ * la caja hay más de lo que hay.
  */
-export function monedaDeCobro(orden: { pagado_divisa_usd: number; pagado_bs: number }): MonedaCobro {
+export function monedaDeCobro(orden: {
+  pagado_divisa_usd: number
+  pagado_bs: number
+  facturada_aparte?: boolean
+}): MonedaCobro {
+  if (orden.facturada_aparte) return 'FACTURADA'
   const divisa = Number(orden.pagado_divisa_usd) > 0
   const bolivares = Number(orden.pagado_bs) > 0
   if (divisa && bolivares) return 'MIXTO'
@@ -155,6 +165,8 @@ export interface Problema {
 
 export interface DatosOrdenAValidar {
   tipo: TipoOrden
+  /** Se facturó por la caja del local: no entra plata a la caja del delivery. */
+  facturada_aparte: boolean
   numero_factura: string
   cliente_nombre: string
   direccion: string
@@ -356,7 +368,10 @@ export function validarOrden(datos: DatosOrdenAValidar): Problema[] {
     })
   }
 
-  if (datos.pagos.length === 0) {
+  // Una comanda facturada aparte se cobra en la otra caja: acá no se carga
+  // ningún pago, y exigirlo trancaría la carga de algo que sí hay que registrar
+  // para poder pagarle la carrera al repartidor.
+  if (!datos.facturada_aparte && datos.pagos.length === 0) {
     problemas.push({ campo: 'pagos', mensaje: 'Agrega al menos un pago.', nivel: 'error' })
   }
 

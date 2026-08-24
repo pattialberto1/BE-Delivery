@@ -5,9 +5,7 @@ import {
   hayMargenDeDelivery,
   liquidacionDesdeOrdenes,
   pagoPorMoneda,
-  referenciasDeOrden,
   resumenMonedas,
-  type PagoDelCierre,
 } from './exportar'
 import type { LiquidacionRepartidor, OrdenDetalle } from './tipos'
 
@@ -45,6 +43,8 @@ function orden(parcial: Partial<OrdenDetalle> = {}): OrdenDetalle {
     pagado_bs: (10 + tarifa) * 40,
     diferencia_usd: 0,
     cantidad_pagos: 1,
+    facturada_aparte: false,
+    referencias: '004521887730',
     ...parcial,
   }
 }
@@ -166,8 +166,8 @@ describe('carrerasPorMoneda', () => {
   })
 
   it('devuelve todo en cero sin órdenes', () => {
-    expect(carrerasPorMoneda([])).toEqual({ USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0 })
-    expect(pagoPorMoneda([])).toEqual({ USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0 })
+    expect(carrerasPorMoneda([])).toEqual({ USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0, FACTURADA: 0 })
+    expect(pagoPorMoneda([])).toEqual({ USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0, FACTURADA: 0 })
   })
 })
 
@@ -251,45 +251,35 @@ describe('consolidarLiquidacion', () => {
   })
 })
 
-describe('referenciasDeOrden', () => {
-  function pago(parcial: Partial<PagoDelCierre> = {}): PagoDelCierre {
-    return {
-      orden_id: 'o-1',
-      metodo: 'pago_movil',
-      referencia: '004521887730',
-      emisor: '0414-1234567',
-      monto: 1000,
-      moneda: 'BS',
-      cuenta: 'Banesco principal',
-      banco: 'Banesco',
-      ...parcial,
-    }
-  }
+describe('comandas facturadas aparte', () => {
+  const facturada = orden({ facturada_aparte: true, pagado_divisa_usd: 0, pagado_bs: 0, pago_repartidor_usd: 3 })
+  const normal = orden({ pagado_divisa_usd: 0, pagado_bs: 480, pago_repartidor_usd: 2 })
 
-  it('junta las referencias de una orden pagada de dos formas', () => {
-    const mapa = referenciasDeOrden([pago({ referencia: '1111' }), pago({ referencia: '2222' })])
-    expect(mapa.get('o-1')).toBe('1111 · 2222')
+  it('no se cuenta como una carrera «sin pago»', () => {
+    // Sí se cobró; lo que pasa es que fue por la otra caja. Meterla entre las
+    // sin pago haría creer que quedó algo por cobrar.
+    const conteo = carrerasPorMoneda([facturada, normal])
+    expect(conteo.FACTURADA).toBe(1)
+    expect(conteo.SIN_PAGO).toBe(0)
+    expect(conteo.BS).toBe(1)
   })
 
-  it('deja fuera el efectivo, que no tiene referencia', () => {
-    const mapa = referenciasDeOrden([
-      pago({ referencia: '1111' }),
-      pago({ metodo: 'efectivo_usd', referencia: null, moneda: 'USD' }),
-    ])
-    expect(mapa.get('o-1')).toBe('1111')
+  it('su carrera no se mezcla con la plata de la caja', () => {
+    const pagar = pagoPorMoneda([facturada, normal])
+    expect(pagar.FACTURADA).toBe(3)
+    expect(pagar.BS).toBe(2)
+    expect(pagar.USD).toBe(0)
   })
 
-  it('no inventa una entrada para la orden que solo se pagó en efectivo', () => {
-    const mapa = referenciasDeOrden([pago({ metodo: 'efectivo_usd', referencia: null, moneda: 'USD' })])
-    expect(mapa.has('o-1')).toBe(false)
+  it('igual se le paga al repartidor que la llevó', () => {
+    // Es lo único que esta comanda aporta: la carrera.
+    const filas = liquidacionDesdeOrdenes([facturada])
+    expect(filas).toHaveLength(1)
+    expect(filas[0].carreras).toBe(1)
+    expect(filas[0].total_pagar_usd).toBe(3)
   })
 
-  it('separa las referencias de órdenes distintas', () => {
-    const mapa = referenciasDeOrden([
-      pago({ orden_id: 'o-1', referencia: '1111' }),
-      pago({ orden_id: 'o-2', referencia: '2222' }),
-    ])
-    expect(mapa.get('o-1')).toBe('1111')
-    expect(mapa.get('o-2')).toBe('2222')
+  it('se nombra aparte en el resumen de una línea', () => {
+    expect(resumenMonedas([facturada])).toBe('1 en facturada aparte')
   })
 })

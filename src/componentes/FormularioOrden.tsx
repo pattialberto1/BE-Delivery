@@ -74,7 +74,9 @@ export function FormularioOrden({
               key={t}
               type="button"
               onClick={() => {
-                setForm({ ...form, tipo: t })
+                // Un pick up se cobra en el local por definición: la marca de
+                // facturada aparte no tiene sentido ahí y la base la rechaza.
+                setForm({ ...form, tipo: t, facturada_aparte: t === 'pickup' ? false : form.facturada_aparte })
                 // Si había un pago con una forma que el pick up no admite,
                 // se reencauza en vez de quedar en un estado imposible.
                 if (t === 'pickup') {
@@ -98,6 +100,38 @@ export function FormularioOrden({
           ))}
         </div>
 
+        {/*
+          La comanda que el cliente pide con factura fiscal se cobra por la caja
+          del local, no por la del delivery. Hay que cargarla igual —el
+          repartidor la lleva y hay que pagarle—, pero su plata no entra acá.
+        */}
+        {form.tipo === 'delivery' && (
+          <label
+            className={`mb-4 flex cursor-pointer items-start gap-3 rounded-lg border-2 p-3 transition-colors ${
+              form.facturada_aparte ? 'border-amber-400 bg-amber-50' : 'border-slate-200 bg-slate-50'
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5 h-5 w-5 shrink-0"
+              checked={form.facturada_aparte}
+              onChange={(e) => {
+                setForm({ ...form, facturada_aparte: e.target.checked })
+                // El cobro pasó por la otra caja: acá no se carga ningún pago.
+                if (e.target.checked) setPagos(() => [])
+              }}
+            />
+            <span>
+              <span className="font-semibold text-slate-800">Se facturó aparte por caja</span>
+              <span className="block text-sm text-slate-600">
+                {form.facturada_aparte
+                  ? 'No se cargan pagos acá y no suma en la caja del delivery. Solo se le paga la carrera al repartidor.'
+                  : 'Márcalo si el cliente pidió factura fiscal y se cobró por la caja del local.'}
+              </span>
+            </span>
+          </label>
+        )}
+
         <div className="grid gap-3 sm:grid-cols-2">
           <Campo
             etiqueta="N° de factura"
@@ -107,7 +141,11 @@ export function FormularioOrden({
                 ? 'Ese número ya está cargado hoy.'
                 : erroresPorCampo.numero_factura
             }
-            ayuda="El que emite la tablet de comandas"
+            ayuda={
+              form.facturada_aparte
+                ? 'El de la factura fiscal que salió por caja'
+                : 'El que emite la tablet de comandas'
+            }
           >
             <Entrada
               ref={refFactura}
@@ -208,6 +246,19 @@ export function FormularioOrden({
         </div>
       </Tarjeta>
 
+      {form.facturada_aparte ? (
+        <Tarjeta titulo="Pagos">
+          <Alerta tono="info" titulo="Esta comanda se cobra por la caja del local">
+            <p>
+              El cliente paga allá y le sale su factura fiscal, así que acá no se carga ningún pago ni captura.
+            </p>
+            <p className="mt-1">
+              En el cierre aparece en su propio apartado y <strong>no suma</strong> en ningún total de la caja del
+              delivery. Lo único que cuenta es la carrera del repartidor, que sí se le paga.
+            </p>
+          </Alerta>
+        </Tarjeta>
+      ) : (
       <Tarjeta
         titulo="Pagos"
         acciones={
@@ -256,6 +307,7 @@ export function FormularioOrden({
           )}
         </div>
       </Tarjeta>
+      )}
     </div>
   )
 }

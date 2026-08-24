@@ -171,6 +171,59 @@ select case when coalesce(sum(carreras), 0) = 3 then 'OK'
 from v_liquidacion_repartidores;
 
 -- ---------------------------------------------------------------------------
+\echo '8f. Una comanda facturada aparte no lleva pagos pero sí carrera'
+-- ---------------------------------------------------------------------------
+insert into ordenes (fecha_operativa, numero_factura, cliente_nombre, zona_id,
+  tarifa_cliente_usd, pago_repartidor_usd, repartidor_id, monto_pedido_usd,
+  tasa_bs_por_usd, creada_por, facturada_aparte)
+select '2026-08-12', 'F-0001', 'Empresa con factura fiscal', z.id,
+  4, 4, r.id, 90, 764.36, '11111111-1111-1111-1111-111111111111', true
+from zonas z, repartidores r
+where z.nombre = 'Chacao'
+limit 1;
+
+select case
+  when facturada_aparte and pagado_usd = 0 and referencias is null then 'OK'
+  else 'FALLA: facturada='||facturada_aparte||' pagado='||pagado_usd
+end as resultado
+from v_ordenes_detalle where numero_factura = 'F-0001';
+
+-- ---------------------------------------------------------------------------
+\echo '8g. Un pick up no se puede marcar como facturado aparte'
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  insert into ordenes (fecha_operativa, numero_factura, tipo, cliente_nombre,
+    tarifa_cliente_usd, pago_repartidor_usd, monto_pedido_usd, tasa_bs_por_usd,
+    creada_por, facturada_aparte)
+  values ('2026-08-12', 'F-0002', 'pickup', 'Cliente', 0, 0, 15, 764.36,
+    '11111111-1111-1111-1111-111111111111', true);
+  raise exception 'FALLA: dejó marcar un pick up como facturado aparte';
+exception when check_violation then
+  raise notice 'OK';
+end $$;
+
+-- ---------------------------------------------------------------------------
+\echo '8g bis. Su carrera sí se le paga al repartidor que la llevó'
+-- ---------------------------------------------------------------------------
+-- Es lo único que la comanda facturada aparte aporta: eran 3 carreras y con
+-- ella son 4. Su plata no entra en la caja, pero al repartidor se le paga.
+select case when coalesce(sum(carreras), 0) = 4 then 'OK'
+  else 'FALLA: la carrera facturada aparte no se liquidó, carreras='||sum(carreras) end as resultado
+from v_liquidacion_repartidores;
+
+-- ---------------------------------------------------------------------------
+\echo '8h. La vista junta las referencias de la orden al lado de la factura'
+-- ---------------------------------------------------------------------------
+-- La 45362 se pagó por pago móvil y tiene referencia; la 45361 fue en efectivo
+-- y no tiene ninguna, que es justo lo que debe pasar.
+select case
+  when (select referencias from v_ordenes_detalle where numero_factura = '45362') is not null
+   and (select referencias from v_ordenes_detalle where numero_factura = '45361') is null
+  then 'OK'
+  else 'FALLA: las referencias no salieron como se esperaba' end as resultado;
+
+-- ---------------------------------------------------------------------------
 \echo '9. Con el día cerrado ya nadie puede tocar las órdenes'
 -- ---------------------------------------------------------------------------
 insert into cierres (fecha_operativa, cerrado_por)

@@ -27,6 +27,19 @@ Arriba de todo hay dos botones:
   repartidor, no se cobra delivery, y solo acepta **efectivo en dólares** o
   **pago móvil**.
 
+**Debajo de los botones hay una casilla: «Se facturó aparte por caja».**
+Márcala solo cuando el cliente pidió **factura fiscal** y por eso la comanda se
+cobró por la caja del local, no por la del delivery. Al marcarla:
+
+- No se carga ningún pago ni captura: la plata entró por la otra caja.
+- En el **N° de factura** va el número de la **factura fiscal**.
+- Esa comanda **no suma nada** en el cierre de la caja del delivery. Sale en su
+  propio apartado, marcada.
+- Lo único que genera es la **carrera del repartidor**, que se le paga igual que
+  cualquier otra.
+
+Lo demás se llena igual: cliente, zona y, cuando se sepa, el repartidor.
+
 ### 2. Los datos del pedido
 
 | Campo | Qué va ahí |

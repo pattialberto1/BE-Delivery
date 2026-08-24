@@ -91,6 +91,7 @@ function vistaOrdenesDetalle(): OrdenDetalle[] {
         fecha_operativa: o.fecha_operativa,
         numero_factura: o.numero_factura,
         tipo: o.tipo,
+        facturada_aparte: o.facturada_aparte ?? false,
         cliente_nombre: o.cliente_nombre,
         cliente_telefono: o.cliente_telefono,
         direccion: o.direccion,
@@ -112,6 +113,7 @@ function vistaOrdenesDetalle(): OrdenDetalle[] {
         pagado_bs: bolivares,
         diferencia_usd: Math.round((pagado - total) * 100) / 100,
         cantidad_pagos: suyos.length,
+        referencias: suyos.map((p) => p.referencia).filter(Boolean).join(' · ') || null,
       }
     })
 }

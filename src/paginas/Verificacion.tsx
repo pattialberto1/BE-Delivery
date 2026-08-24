@@ -75,7 +75,11 @@ export function Verificacion() {
   }
 
   const pagos = actual ? (pagosPorOrden[actual.id] ?? []) : []
-  const cuadra = actual ? Math.abs(actual.diferencia_usd) <= TOLERANCIA_DESCUADRE_USD : true
+  // La facturada aparte no lleva pagos acá —se cobró por la caja del local—,
+  // así que no tiene nada que cuadrar ni captura que mirar.
+  const cuadra = actual
+    ? actual.facturada_aparte || Math.abs(actual.diferencia_usd) <= TOLERANCIA_DESCUADRE_USD
+    : true
 
   // El selector de fecha va fuera de todo lo que pueda faltar: si no, al no
   // quedar nada pendiente no habría forma de moverse a otro día.
@@ -161,12 +165,16 @@ export function Verificacion() {
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             <Dato etiqueta="Pedido" valor={formatearUSD(actual.monto_pedido_usd)} />
             <Dato etiqueta="Total" valor={formatearUSD(actual.total_usd)} />
-            <Dato
-              etiqueta="Pagado"
-              valor={formatearUSD(actual.pagado_usd)}
-              tono={cuadra ? 'bueno' : 'malo'}
-              detalle={cuadra ? 'Cuadra' : `Diferencia ${formatearUSD(actual.diferencia_usd)}`}
-            />
+            {actual.facturada_aparte ? (
+              <Dato etiqueta="Cobro" valor="Por caja" detalle="No entra en la caja del delivery" />
+            ) : (
+              <Dato
+                etiqueta="Pagado"
+                valor={formatearUSD(actual.pagado_usd)}
+                tono={cuadra ? 'bueno' : 'malo'}
+                detalle={cuadra ? 'Cuadra' : `Diferencia ${formatearUSD(actual.diferencia_usd)}`}
+              />
+            )}
           </div>
 
           {!cuadra && (
@@ -183,8 +191,22 @@ export function Verificacion() {
         </Tarjeta>
 
         {/* Derecha: los comprobantes */}
-        <Tarjeta titulo={`Comprobantes (${pagos.length})`}>
+        <Tarjeta
+          titulo={actual.facturada_aparte ? 'Comprobantes' : `Comprobantes (${pagos.length})`}
+        >
           <div className="space-y-4">
+            {actual.facturada_aparte && (
+              <Alerta tono="info" titulo="Se facturó aparte por caja">
+                <p>
+                  Esta comanda salió con factura fiscal por la caja del local, así que acá no hay captura que
+                  cotejar. Lo que se aprueba es que la comanda existió y que la lleva el repartidor indicado.
+                </p>
+                <p className="mt-1">
+                  No suma en ningún total del cierre. Lo único que genera es la carrera de{' '}
+                  <strong>{formatearUSD(actual.pago_repartidor_usd)}</strong> que hay que pagarle.
+                </p>
+              </Alerta>
+            )}
             {pagos.map((pago) => (
               <div key={pago.id} className="rounded-lg border border-slate-200 p-3">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -215,7 +237,9 @@ export function Verificacion() {
                 )}
               </div>
             ))}
-            {pagos.length === 0 && <Vacio>Esta orden no tiene pagos cargados.</Vacio>}
+            {pagos.length === 0 && !actual.facturada_aparte && (
+              <Vacio>Esta orden no tiene pagos cargados.</Vacio>
+            )}
           </div>
         </Tarjeta>
       </div>

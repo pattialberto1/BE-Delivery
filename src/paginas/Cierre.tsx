@@ -17,7 +17,7 @@ import {
   type TotalesCierre,
 } from '../lib/tipos'
 import { exportarCierre } from '../lib/exportar'
-import { Alerta, Boton, Cargando, ContenedorTabla, Dato, Entrada, Tarjeta } from '../componentes/UI'
+import { Alerta, Boton, Cargando, ContenedorTabla, Dato, Entrada, Insignia, Tarjeta } from '../componentes/UI'
 
 export function Cierre() {
   const { hoy, esAdmin, usuario, bancos, cuentas } = useSesion()
@@ -55,9 +55,12 @@ export function Cierre() {
 
   const porMetodo = useMemo(() => {
     const tasaPorOrden = new Map(ordenes.map((o) => [o.id, Number(o.tasa_bs_por_usd)]))
+    // Una facturada aparte no debería tener pagos cargados acá, pero si alguien
+    // marca la casilla después de haberlos cargado, no pueden colarse en la caja.
+    const deLaCaja = new Set(ordenes.filter((o) => !o.facturada_aparte).map((o) => o.id))
     const resumen: TotalesCierre['por_metodo'] = {}
 
-    for (const pago of pagos) {
+    for (const pago of pagos.filter((p) => deLaCaja.has(p.orden_id))) {
       const fila = (resumen[pago.metodo] ??= { cantidad: 0, monto_bs: 0, monto_usd: 0 })
       const monto = Number(pago.monto)
       const tasa = tasaPorOrden.get(pago.orden_id) ?? 0
@@ -97,25 +100,48 @@ export function Cierre() {
       .sort((a, b) => a.factura.localeCompare(b.factura, 'es', { numeric: true }))
   }, [pagos, cuentas, bancos, ordenes])
 
+  // Las facturadas aparte se cobraron por la caja del local: se separan antes de
+  // sumar nada, porque su plata no está en esta caja.
+  const facturadas = useMemo(() => ordenes.filter((o) => o.facturada_aparte), [ordenes])
+  const deLaCaja = useMemo(() => ordenes.filter((o) => !o.facturada_aparte), [ordenes])
+
   // Los pick up entran en la caja pero no son delivery: no llevan tarifa ni
   // repartidor, así que no pueden contarse como carreras.
-  const deliveries = useMemo(() => ordenes.filter((o) => o.tipo !== 'pickup'), [ordenes])
-  const pickups = useMemo(() => ordenes.filter((o) => o.tipo === 'pickup'), [ordenes])
+  const deliveries = useMemo(() => deLaCaja.filter((o) => o.tipo !== 'pickup'), [deLaCaja])
+  const pickups = useMemo(() => deLaCaja.filter((o) => o.tipo === 'pickup'), [deLaCaja])
 
   const totales = useMemo(() => {
-    const ventas = ordenes.reduce((s, o) => s + Number(o.monto_pedido_usd), 0)
-    const cobrado = ordenes.reduce((s, o) => s + Number(o.tarifa_cliente_usd), 0)
-    const pagado = ordenes.reduce((s, o) => s + Number(o.pago_repartidor_usd), 0)
+    const suma = (lista: typeof ordenes, campo: 'monto_pedido_usd' | 'tarifa_cliente_usd' | 'pago_repartidor_usd') =>
+      lista.reduce((s, o) => s + Number(o[campo]), 0)
+
+    const ventas = suma(deLaCaja, 'monto_pedido_usd')
+    const cobrado = suma(deLaCaja, 'tarifa_cliente_usd')
+    const pagadoCaja = suma(deLaCaja, 'pago_repartidor_usd')
+    const pagadoFacturadas = suma(facturadas, 'pago_repartidor_usd')
+
     return {
-      ordenes: ordenes.length,
+      ordenes: deLaCaja.length,
       ventas_usd: ventas,
       delivery_cobrado_usd: cobrado,
-      delivery_pagado_usd: pagado,
-      margen_delivery_usd: cobrado - pagado,
+      // Incluye las facturadas aparte a propósito: es plata que sale, no que
+      // entra, y al repartidor hay que pagarle esa carrera igual. Si esta cifra
+      // las dejara fuera, no cuadraría con la liquidación con la que se paga.
+      delivery_pagado_usd: pagadoCaja + pagadoFacturadas,
+      // El margen se calcula solo con lo de la caja: lo facturado aparte no
+      // cobró su delivery acá, y mezclarlo mostraría una pérdida que no existe.
+      margen_delivery_usd: cobrado - pagadoCaja,
       total_usd: ventas + cobrado,
       por_metodo: porMetodo,
+      facturadas_aparte: facturadas.length
+        ? {
+            ordenes: facturadas.length,
+            ventas_usd: suma(facturadas, 'monto_pedido_usd'),
+            delivery_cobrado_usd: suma(facturadas, 'tarifa_cliente_usd'),
+            delivery_pagado_usd: pagadoFacturadas,
+          }
+        : undefined,
     } satisfies TotalesCierre
-  }, [ordenes, porMetodo])
+  }, [deLaCaja, facturadas, porMetodo])
 
   const conMargen = Math.abs(totales.margen_delivery_usd) >= 0.01
 
@@ -124,8 +150,12 @@ export function Cierre() {
   const tasaDelDia = ordenes.length ? Number(ordenes[0].tasa_bs_por_usd) : 0
 
   const pendientes = ordenes.filter((o) => o.estado === 'pendiente')
-  const sinRepartidor = deliveries.filter((o) => !o.repartidor_id)
-  const descuadradas = ordenes.filter((o) => Math.abs(o.diferencia_usd) > TOLERANCIA_DESCUADRE_USD)
+  // Una facturada aparte también la lleva alguien: entra en este control aunque
+  // no entre en los totales de la caja.
+  const sinRepartidor = ordenes.filter((o) => o.tipo !== 'pickup' && !o.repartidor_id)
+  // Y queda fuera del descuadre: no tiene pagos cargados acá porque no le
+  // corresponden, así que marcarla como descuadrada sería ruido en cada cierre.
+  const descuadradas = deLaCaja.filter((o) => Math.abs(o.diferencia_usd) > TOLERANCIA_DESCUADRE_USD)
   const saltos = useMemo(() => detectarSaltosDeFactura(ordenes.map((o) => o.numero_factura)), [ordenes])
 
   // Se puede cerrar con descuadres (a veces son reales y se justifican), pero no
@@ -195,9 +225,16 @@ export function Cierre() {
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Dato
-            etiqueta="Órdenes"
+            etiqueta="Órdenes en caja"
             valor={totales.ordenes}
-            detalle={pickups.length ? `${deliveries.length} delivery · ${pickups.length} pick up` : undefined}
+            detalle={
+              [
+                pickups.length ? `${deliveries.length} delivery · ${pickups.length} pick up` : null,
+                facturadas.length ? `+ ${facturadas.length} facturada(s) aparte` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ') || undefined
+            }
           />
           <Dato etiqueta="Ventas (sin delivery)" valor={formatearUSD(totales.ventas_usd)} />
           <Dato etiqueta="Total facturado" valor={formatearUSD(totales.total_usd)} />
@@ -207,7 +244,18 @@ export function Cierre() {
             // Sin margen, cobrado y a pagar son la misma cifra: se dice una vez.
             detalle={conMargen ? undefined : 'Va completo a los repartidores'}
           />
-          <Dato etiqueta="A pagar a repartidores" valor={formatearUSD(totales.delivery_pagado_usd)} tono="malo" />
+          <Dato
+            etiqueta="A pagar a repartidores"
+            valor={formatearUSD(totales.delivery_pagado_usd)}
+            tono="malo"
+            // Sale plata, no entra: por eso esta sí incluye las carreras de las
+            // facturadas aparte. Se dice para que nadie crea que se coló.
+            detalle={
+              totales.facturadas_aparte
+                ? `incluye ${formatearUSD(totales.facturadas_aparte.delivery_pagado_usd)} de facturadas aparte`
+                : undefined
+            }
+          />
           {conMargen && (
             <Dato etiqueta="Margen del delivery" valor={formatearUSD(totales.margen_delivery_usd)} tono="bueno" />
           )}
@@ -294,6 +342,65 @@ export function Cierre() {
           </table>
         </ContenedorTabla>
       </Tarjeta>
+
+      {/*
+        Las comandas facturadas por la caja del local. Van completamente aparte:
+        su plata no está en esta caja y no suma en ninguna cifra de arriba. Lo
+        único que sale de acá es la carrera que hay que pagarle al repartidor.
+      */}
+      {facturadas.length > 0 && (
+        <Tarjeta titulo={`Facturadas aparte por caja (${facturadas.length})`}>
+          <Alerta tono="aviso" titulo="No suman en la caja del delivery">
+            Estas comandas se cobraron por la caja del local y salieron con factura fiscal. Sus montos{' '}
+            <strong>no entran</strong> en ningún total del cierre. Lo único que cuenta es la carrera de cada una, que
+            sí hay que pagarle al repartidor que la llevó.
+          </Alerta>
+
+          <ContenedorTabla className="mt-3">
+            <table className="w-full min-w-[38rem] text-sm">
+              <thead>
+                <tr className="border-b border-slate-300 text-left text-xs uppercase tracking-wide text-slate-500">
+                  <th className="py-2 pr-3">Factura fiscal</th>
+                  <th className="py-2 pr-3">Cliente</th>
+                  <th className="py-2 pr-3">Zona</th>
+                  <th className="py-2 pr-3">Repartidor</th>
+                  <th className="py-2 pr-3 text-right">Pedido (no suma)</th>
+                  <th className="py-2 text-right">Carrera a pagar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {facturadas.map((o) => (
+                  <tr key={o.id} className="border-b border-slate-100">
+                    <td className="py-2 pr-3 font-bold tabular-nums">{o.numero_factura}</td>
+                    <td className="py-2 pr-3">{o.cliente_nombre}</td>
+                    <td className="py-2 pr-3">{o.zona}</td>
+                    <td className="py-2 pr-3">
+                      {o.repartidor ?? <Insignia tono="alerta">Sin asignar</Insignia>}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-400">
+                      {formatearUSD(o.monto_pedido_usd)}
+                    </td>
+                    <td className="py-2 text-right font-semibold tabular-nums">
+                      {formatearUSD(o.pago_repartidor_usd)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-300 font-bold">
+                  <td className="py-2 pr-3" colSpan={4}>
+                    Solo esto se paga
+                  </td>
+                  <td className="py-2 pr-3 text-right text-slate-400">—</td>
+                  <td className="py-2 text-right tabular-nums">
+                    {formatearUSD(totales.facturadas_aparte?.delivery_pagado_usd ?? 0)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </ContenedorTabla>
+        </Tarjeta>
+      )}
 
       {(saltos.length > 0 || descuadradas.length > 0 || bloqueos.length > 0) && (
         <Tarjeta titulo="Revisar antes de cerrar">

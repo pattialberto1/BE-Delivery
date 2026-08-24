@@ -191,6 +191,6 @@ export function Dato({
 }
 
 /** Envuelve una tabla ancha para que haga scroll sola en la tablet. */
-export function ContenedorTabla({ children }: { children: ReactNode }) {
-  return <div className="-mx-4 overflow-x-auto px-4">{children}</div>
+export function ContenedorTabla({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <div className={`-mx-4 overflow-x-auto px-4 ${className}`}>{children}</div>
 }

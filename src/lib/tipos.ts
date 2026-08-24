@@ -72,6 +72,13 @@ export interface Orden {
   fecha_operativa: string
   numero_factura: string
   tipo: TipoOrden
+  /**
+   * La comanda se facturó por la caja del local, con factura fiscal.
+   *
+   * Es delivery y hay que pagarle la carrera al repartidor, pero su dinero
+   * nunca pasó por la caja del delivery: no suma en ningún total del cierre.
+   */
+  facturada_aparte: boolean
   cliente_nombre: string
   cliente_telefono: string | null
   direccion: string | null
@@ -111,6 +118,7 @@ export interface OrdenDetalle {
   fecha_operativa: string
   numero_factura: string
   tipo: TipoOrden
+  facturada_aparte: boolean
   cliente_nombre: string
   cliente_telefono: string | null
   direccion: string | null
@@ -134,16 +142,19 @@ export interface OrdenDetalle {
   pagado_bs: number
   diferencia_usd: number
   cantidad_pagos: number
+  /** Las referencias de sus pagos, separadas por " · ". El efectivo no tiene. */
+  referencias: string | null
 }
 
 /** Con qué plata se cobró una carrera. */
-export type MonedaCobro = 'USD' | 'BS' | 'MIXTO' | 'SIN_PAGO'
+export type MonedaCobro = 'USD' | 'BS' | 'MIXTO' | 'SIN_PAGO' | 'FACTURADA'
 
 export const ETIQUETA_MONEDA_COBRO: Record<MonedaCobro, string> = {
   USD: 'Dólares',
   BS: 'Bolívares',
   MIXTO: 'Mixto',
   SIN_PAGO: 'Sin pago',
+  FACTURADA: 'Facturada aparte',
 }
 
 /** Fila de `v_liquidacion_repartidores`: el cuadro que hoy se arma a mano. */
@@ -165,6 +176,17 @@ export interface Cierre {
   notas: string | null
 }
 
+/**
+ * Los totales de una jornada.
+ *
+ * Todo lo que dice «caja» cuenta solo las órdenes que se cobraron por la caja
+ * del delivery. Las facturadas aparte van en su propio bloque y no suman en
+ * ninguna de las otras cifras: su plata entró por la caja del local.
+ *
+ * La única excepción es `delivery_pagado_usd`, que sí las incluye, porque no es
+ * plata que entró sino plata que sale: al repartidor hay que pagarle esa carrera
+ * igual, y es el número con el que se le paga.
+ */
 export interface TotalesCierre {
   ordenes: number
   ventas_usd: number
@@ -173,6 +195,16 @@ export interface TotalesCierre {
   margen_delivery_usd: number
   total_usd: number
   por_metodo: Record<string, { cantidad: number; monto_bs: number; monto_usd: number }>
+  facturadas_aparte?: TotalesFacturadasAparte
+}
+
+/** Las comandas de delivery que se facturaron por la caja del local. */
+export interface TotalesFacturadasAparte {
+  ordenes: number
+  ventas_usd: number
+  delivery_cobrado_usd: number
+  /** Lo único de este bloque que sí hay que desembolsar. */
+  delivery_pagado_usd: number
 }
 
 /** Un pago tal como se está tecleando en el formulario, antes de guardarse. */

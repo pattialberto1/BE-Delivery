@@ -135,6 +135,12 @@ export function Asignar() {
                     {o.zona}
                     {o.direccion ? ` · ${o.direccion}` : ''}
                   </span>
+                  {/* Se asigna igual que cualquier otra: la lleva un repartidor
+                      y hay que pagarle. Se marca para que no extrañe que su
+                      plata no aparezca en la caja. */}
+                  {o.facturada_aparte && (
+                    <span className="mt-0.5 block text-xs font-semibold text-amber-700">Facturada aparte por caja</span>
+                  )}
                 </span>
                 <span className="shrink-0 rounded-lg bg-slate-100 px-3 py-1 font-bold tabular-nums text-slate-700">
                   {formatearUSD(o.tarifa_cliente_usd)}

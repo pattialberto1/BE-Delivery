@@ -106,6 +106,8 @@ interface SemillaOrden {
   cuenta?: string
   /** Dólares en efectivo, la columna DIVISA del papel. */
   divisaUsd?: number
+  /** Se facturó por la caja del local: no lleva pagos acá ni suma en la caja. */
+  facturadaAparte?: boolean
   notas?: string
 }
 
@@ -236,6 +238,20 @@ const SEMILLAS: SemillaOrden[] = [
     divisaUsd: 10,
     verificada: false,
   },
+  // Facturada por la caja del local: el cliente pidió factura fiscal. No lleva
+  // pagos acá y su plata no entra en la caja del delivery; lo único que genera
+  // es la carrera que hay que pagarle al repartidor.
+  {
+    factura: 'F-00812',
+    cliente: 'Inversiones Andrade C.A.',
+    telefono: '0212-5551122',
+    direccion: 'La Florida, Av. Blandín, oficina 3',
+    zona: 'La Florida',
+    repartidor: 'r1',
+    pedido: 86,
+    facturadaAparte: true,
+    verificada: false,
+  },
   // Todo en efectivo en dólares: es la carrera que se le paga al repartidor con
   // los dólares de la caja, no con lo que entró por pago móvil.
   {
@@ -279,6 +295,7 @@ export function cargarSemillas(zonasPorNombre: Map<string, { id: string; tarifa:
       fecha_operativa: HOY,
       numero_factura: semilla.factura,
       tipo: semilla.tipo ?? 'delivery',
+      facturada_aparte: semilla.facturadaAparte ?? false,
       cliente_nombre: semilla.cliente,
       cliente_telefono: semilla.telefono,
       direccion: semilla.direccion,

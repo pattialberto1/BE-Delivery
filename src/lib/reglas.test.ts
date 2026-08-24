@@ -9,6 +9,7 @@ import {
   referenciaEsConfiable,
   fechaOperativa,
   metodoParaCompletar,
+  monedaDeCobro,
   monedaDeMetodo,
   normalizarReferencia,
   pagoEnUSD,
@@ -41,6 +42,7 @@ function pago(parcial: Partial<BorradorPago> = {}): BorradorPago {
 function orden(parcial: Partial<DatosOrdenAValidar> = {}): DatosOrdenAValidar {
   return {
     tipo: 'delivery',
+    facturada_aparte: false,
     numero_factura: '1001',
     cliente_nombre: 'María',
     direccion: 'Av. Urdaneta, edificio X',
@@ -462,5 +464,33 @@ describe('fechaOperativa', () => {
 
   it('retrocede bien al cruzar el cambio de mes', () => {
     expect(fechaOperativa(new Date(2026, 8, 1, 2, 0), 5)).toBe('2026-08-31')
+  })
+})
+
+describe('comandas facturadas aparte', () => {
+  it('no exige pagos: el cobro fue por la caja del local', () => {
+    const problemas = validarOrden(orden({ facturada_aparte: true, pagos: [] }))
+    expect(problemas.filter((p) => p.nivel === 'error')).toEqual([])
+  })
+
+  it('sigue exigiendo factura, cliente y zona', () => {
+    // La comanda existe igual: sin esos datos no se sabe qué se llevó ni adónde.
+    const problemas = validarOrden(
+      orden({ facturada_aparte: true, pagos: [], numero_factura: '', cliente_nombre: '', zona_id: '' }),
+    )
+    const campos = problemas.filter((p) => p.nivel === 'error').map((p) => p.campo)
+    expect(campos).toContain('numero_factura')
+    expect(campos).toContain('cliente_nombre')
+    expect(campos).toContain('zona_id')
+  })
+
+  it('una orden normal sin pagos sí se tranca', () => {
+    const problemas = validarOrden(orden({ pagos: [] }))
+    expect(problemas.some((p) => p.nivel === 'error' && p.campo === 'pagos')).toBe(true)
+  })
+
+  it('es su propia categoría de cobro, no una carrera sin pago', () => {
+    expect(monedaDeCobro({ pagado_divisa_usd: 0, pagado_bs: 0, facturada_aparte: true })).toBe('FACTURADA')
+    expect(monedaDeCobro({ pagado_divisa_usd: 0, pagado_bs: 0 })).toBe('SIN_PAGO')
   })
 })

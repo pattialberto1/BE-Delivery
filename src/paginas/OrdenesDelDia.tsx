@@ -9,6 +9,16 @@ import { Alerta, Boton, Cargando, ContenedorTabla, Entrada, Insignia, Seleccion,
 
 type Filtro = 'todas' | 'pendientes' | 'descuadradas' | 'sin_repartidor'
 
+/**
+ * Una orden descuadra si lo pagado no cubre el total.
+ *
+ * La facturada aparte nunca: se cobró por la caja del local y acá no lleva
+ * pagos, así que medirle la diferencia la pintaría en rojo siempre.
+ */
+function estaDescuadrada(o: OrdenDetalle): boolean {
+  return !o.facturada_aparte && Math.abs(o.diferencia_usd) > TOLERANCIA_DESCUADRE_USD
+}
+
 export function OrdenesDelDia() {
   const { hoy, repartidores, puedeEscribir, esAdmin } = useSesion()
   // Se puede mirar cualquier jornada, no solo la de hoy: al día siguiente hay
@@ -29,11 +39,14 @@ export function OrdenesDelDia() {
     const texto = busqueda.trim().toLowerCase()
     return ordenes.filter((o) => {
       if (filtro === 'pendientes' && o.estado !== 'pendiente') return false
-      if (filtro === 'descuadradas' && Math.abs(o.diferencia_usd) <= TOLERANCIA_DESCUADRE_USD) return false
+      if (filtro === 'descuadradas' && !estaDescuadrada(o)) return false
       if (filtro === 'sin_repartidor' && (o.repartidor_id || o.tipo === 'pickup')) return false
       if (!texto) return true
       return (
         o.numero_factura.toLowerCase().includes(texto) ||
+        // También por referencia: es lo que se tiene a mano cuando el banco
+        // muestra un pago y hay que dar con la comanda que le corresponde.
+        (o.referencias ?? '').toLowerCase().includes(texto) ||
         o.cliente_nombre.toLowerCase().includes(texto) ||
         (o.direccion ?? '').toLowerCase().includes(texto) ||
         (o.repartidor ?? '').toLowerCase().includes(texto)
@@ -91,7 +104,7 @@ export function OrdenesDelDia() {
   }
 
   const sinRepartidor = ordenes.filter((o) => !o.repartidor_id && o.tipo !== 'pickup').length
-  const descuadradas = ordenes.filter((o) => Math.abs(o.diferencia_usd) > TOLERANCIA_DESCUADRE_USD).length
+  const descuadradas = ordenes.filter(estaDescuadrada).length
 
   const asignables = useMemo(() => visibles.filter((o) => seAsigna(o)), [visibles])
 
@@ -190,7 +203,7 @@ export function OrdenesDelDia() {
               </thead>
               <tbody>
                 {visibles.map((o) => {
-                  const cuadra = Math.abs(o.diferencia_usd) <= TOLERANCIA_DESCUADRE_USD
+                  const cuadra = !estaDescuadrada(o)
                   return (
                     <tr key={o.id} className="border-b border-slate-100 align-middle">
                       <td className="py-2 pr-2">
@@ -216,9 +229,19 @@ export function OrdenesDelDia() {
                         ) : (
                           o.numero_factura
                         )}
+                        {/* La referencia siempre al lado de la factura: son los
+                            dos números con los que se coteja contra el banco. */}
+                        <div className="mt-0.5 text-xs font-normal text-slate-500">
+                          {o.referencias ?? <span className="italic">sin referencia</span>}
+                        </div>
                         {o.tipo === 'pickup' && (
                           <div className="mt-0.5">
                             <Insignia>Retiro</Insignia>
+                          </div>
+                        )}
+                        {o.facturada_aparte && (
+                          <div className="mt-0.5">
+                            <Insignia tono="alerta">Facturada aparte</Insignia>
                           </div>
                         )}
                       </td>
@@ -231,7 +254,11 @@ export function OrdenesDelDia() {
                       <td className="py-2 pr-3 text-right tabular-nums">{formatearUSD(o.tarifa_cliente_usd)}</td>
                       <td className="py-2 pr-3 text-right font-semibold tabular-nums">{formatearUSD(o.total_usd)}</td>
                       <td className={`py-2 pr-3 text-right tabular-nums ${cuadra ? '' : 'font-bold text-red-700'}`}>
-                        {formatearUSD(o.pagado_usd)}
+                        {o.facturada_aparte ? (
+                          <span className="text-xs text-slate-500">por caja del local</span>
+                        ) : (
+                          formatearUSD(o.pagado_usd)
+                        )}
                         {!cuadra && (
                           <div className="text-xs font-semibold">
                             {o.diferencia_usd < 0 ? 'faltan ' : 'sobran '}

@@ -79,6 +79,7 @@ export function NuevaOrden() {
   const datosAValidar: DatosOrdenAValidar = useMemo(
     () => ({
       tipo: form.tipo,
+      facturada_aparte: form.facturada_aparte,
       numero_factura: form.numero_factura,
       cliente_nombre: form.cliente_nombre,
       direccion: form.direccion,
@@ -245,6 +246,7 @@ export function NuevaOrden() {
           cliente_telefono: form.cliente_telefono.trim() || null,
           direccion: form.direccion.trim() || null,
           tipo: form.tipo,
+          facturada_aparte: form.facturada_aparte,
           zona_id: esPickup ? null : zonaElegida!.id,
           tarifa_cliente_usd: esPickup ? 0 : zonaElegida!.tarifa_cliente_usd,
           pago_repartidor_usd: esPickup ? 0 : zonaElegida!.pago_repartidor_usd,
@@ -260,7 +262,10 @@ export function NuevaOrden() {
       if (errorOrden) throw errorOrden
       ordenCreada = orden.id
 
-      const { error: errorPagos } = await supabase.from('pagos').insert(
+      // Una comanda facturada aparte no lleva pagos acá: el cobro fue por la
+      // otra caja. Insertar una lista vacía funcionaría, pero deja un viaje al
+      // servidor que no hace falta.
+      const { error: errorPagos } = pagos.length === 0 ? { error: null } : await supabase.from('pagos').insert(
         pagos.map((pago, i) => ({
           orden_id: orden.id,
           metodo: pago.metodo,

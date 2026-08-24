@@ -6,6 +6,7 @@ import {
   type LiquidacionRepartidor,
   type MetodoPago,
   type Moneda,
+  type MonedaCobro,
   type OrdenDetalle,
   type TotalesCierre,
 } from './tipos'
@@ -33,28 +34,13 @@ export interface PagoDelCierre {
 }
 
 /**
- * Las referencias de cada orden, juntas en un texto.
- *
- * Sirve para la columna del detalle, donde hay una sola fila por orden aunque
- * el cliente haya pagado de dos formas.
- */
-export function referenciasDeOrden(pagos: PagoDelCierre[]): Map<string, string> {
-  const mapa = new Map<string, string[]>()
-  for (const pago of pagos) {
-    if (!pago.referencia) continue
-    mapa.set(pago.orden_id, [...(mapa.get(pago.orden_id) ?? []), pago.referencia])
-  }
-  return new Map([...mapa].map(([id, refs]) => [id, refs.join(' · ')]))
-}
-
-/**
  * Cuenta las carreras por la moneda con la que se cobraron.
  *
  * Al repartidor se le paga con la plata que entró, así que hace falta saber
  * cuántas de sus carreras trajeron dólares y cuántas bolívares.
  */
-export function carrerasPorMoneda(ordenes: OrdenDetalle[]) {
-  const conteo = { USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0 }
+export function carrerasPorMoneda(ordenes: OrdenDetalle[]): Record<MonedaCobro, number> {
+  const conteo = { USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0, FACTURADA: 0 }
   for (const orden of ordenes) conteo[monedaDeCobro(orden)] += 1
   return conteo
 }
@@ -67,8 +53,8 @@ export function carrerasPorMoneda(ordenes: OrdenDetalle[]) {
  * «cuánto vale en Bs» sino «de este total, qué parte corresponde a carreras que
  * entraron en bolívares», que es lo que decide con qué plata se le paga.
  */
-export function pagoPorMoneda(ordenes: OrdenDetalle[]) {
-  const total = { USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0 }
+export function pagoPorMoneda(ordenes: OrdenDetalle[]): Record<MonedaCobro, number> {
+  const total = { USD: 0, BS: 0, MIXTO: 0, SIN_PAGO: 0, FACTURADA: 0 }
   for (const orden of ordenes) total[monedaDeCobro(orden)] += Number(orden.pago_repartidor_usd)
   return total
 }
@@ -177,6 +163,11 @@ export async function exportarCierre(
   tasa: number,
   pagos: PagoDelCierre[] = [],
 ) {
+  // Las facturadas aparte se cobraron por la caja del local: se sacan de todos
+  // los desgloses de caja y se reportan solas al final.
+  const facturadas = ordenes.filter((o) => o.facturada_aparte)
+  const deLaCaja = ordenes.filter((o) => !o.facturada_aparte)
+
   const conMargen = Math.abs(totales.margen_delivery_usd) >= 0.01
   const filas: Row[] = [
     titulo('Broaster Express La Candelaria', 4),
@@ -184,7 +175,7 @@ export async function exportarCierre(
     subtitulo(`Tasa del día: ${tasa} Bs/$`, 4),
     FILA_VACIA,
 
-    seccion('Resumen', 4),
+    seccion('Resumen de la caja del delivery', 4),
     [texto('Concepto', true), texto('Dólares', true), texto('Bolívares', true)],
     [texto('Órdenes'), entero(totales.ordenes)],
     renglonResumen('Ventas (sin delivery)', totales.ventas_usd, tasa),
@@ -214,7 +205,7 @@ export async function exportarCierre(
 
   // Por zona: dice de dónde viene el delivery y ayuda a revisar las tarifas.
   const porZona = new Map<string, { entregas: number; cobrado: number }>()
-  for (const orden of ordenes.filter((o) => o.tipo !== 'pickup')) {
+  for (const orden of deLaCaja.filter((o) => o.tipo !== 'pickup')) {
     const acumulado = porZona.get(orden.zona) ?? { entregas: 0, cobrado: 0 }
     acumulado.entregas += 1
     acumulado.cobrado += Number(orden.tarifa_cliente_usd)
@@ -223,7 +214,7 @@ export async function exportarCierre(
 
   // Los pick up se cuentan aparte: entran en la caja, pero no son
   // una entrega y meterlos entre las zonas falsearía el reporte del delivery.
-  const pickups = ordenes.filter((o) => o.tipo === 'pickup')
+  const pickups = deLaCaja.filter((o) => o.tipo === 'pickup')
   if (pickups.length) {
     filas.push(
       FILA_VACIA,
@@ -235,7 +226,7 @@ export async function exportarCierre(
     )
   }
 
-  const entregas = ordenes.filter((o) => o.tipo !== 'pickup')
+  const entregas = deLaCaja.filter((o) => o.tipo !== 'pickup')
   if (entregas.length) {
     const conteo = carrerasPorMoneda(entregas)
     filas.push(
@@ -261,10 +252,54 @@ export async function exportarCierre(
     filas.push([texto(zona), entero(datos.entregas), dinero(datos.cobrado)])
   }
 
+  // Las comandas que se facturaron por la caja del local. Van al final y
+  // completamente aparte: ninguna de sus cifras entró en las de arriba. La
+  // única columna que importa es la carrera, que sí hay que desembolsar.
+  if (facturadas.length) {
+    filas.push(
+      FILA_VACIA,
+      seccion('Facturadas aparte por caja — NO suman en la caja del delivery', 4),
+      [
+        {
+          value:
+            'Estas comandas salieron con factura fiscal por la caja del local. Sus montos no están incluidos en ningún total de este cierre. Lo único que hay que pagar es la carrera de cada una.',
+          type: String,
+          columnSpan: 4,
+          textColor: '#92400E',
+        },
+      ],
+      encabezados(['Factura fiscal', 'Cliente', 'Repartidor', 'Carrera a pagar $']),
+    )
+
+    for (const orden of [...facturadas].sort((a, b) =>
+      a.numero_factura.localeCompare(b.numero_factura, 'es', { numeric: true }),
+    )) {
+      filas.push([
+        texto(orden.numero_factura),
+        texto(orden.cliente_nombre),
+        orden.repartidor ? texto(orden.repartidor) : { value: 'SIN ASIGNAR', type: String, textColor: ROJO },
+        dinero(orden.pago_repartidor_usd),
+      ])
+    }
+
+    filas.push([
+      texto('Solo esto se paga', true),
+      texto(`${facturadas.length} comanda${facturadas.length === 1 ? '' : 's'}`),
+      null,
+      dinero(
+        facturadas.reduce((suma, o) => suma + Number(o.pago_repartidor_usd), 0),
+        true,
+      ),
+    ])
+  }
+
   // Lo que quedó por revisar. Va al final, pero es lo que hay que mirar primero
   // cuando algo no cuadra.
   const saltos = detectarSaltosDeFactura(ordenes.map((o) => o.numero_factura))
-  const descuadradas = ordenes.filter((o) => Math.abs(o.diferencia_usd) > TOLERANCIA_DESCUADRE_USD)
+  // La facturada aparte no tiene pagos cargados acá porque no le corresponden:
+  // medirle el descuadre la marcaría en rojo todos los días sin motivo.
+  const descuadradas = deLaCaja.filter((o) => Math.abs(o.diferencia_usd) > TOLERANCIA_DESCUADRE_USD)
+  // Sin repartidor sí entra: esa también la lleva alguien.
   const sinRepartidor = ordenes.filter((o) => !o.repartidor_id && o.tipo !== 'pickup')
 
   if (saltos.length || descuadradas.length || sinRepartidor.length) {
@@ -294,7 +329,7 @@ export async function exportarCierre(
     [
       { data: filas, sheet: 'Cierre', columns: ANCHOS_CIERRE },
       {
-        data: hojaDetalle(ordenes, referenciasDeOrden(pagos)),
+        data: hojaDetalle(ordenes),
         sheet: 'Detalle',
         columns: ANCHOS_DETALLE,
         stickyRowsCount: 1,
@@ -324,7 +359,7 @@ const ANCHOS_DETALLE = [
   { width: 26 },
 ]
 
-function hojaDetalle(ordenes: OrdenDetalle[], referencias: Map<string, string>): Row[] {
+function hojaDetalle(ordenes: OrdenDetalle[]): Row[] {
   const filas: Row[] = [
     encabezados([
       'Factura',
@@ -348,7 +383,11 @@ function hojaDetalle(ordenes: OrdenDetalle[], referencias: Map<string, string>):
     const descuadrada = Math.abs(orden.diferencia_usd) > TOLERANCIA_DESCUADRE_USD
     filas.push([
       texto(orden.numero_factura),
-      texto(ETIQUETA_TIPO[orden.tipo]),
+      // Se marca en la columna del tipo para que quien filtre esta hoja sepa que
+      // esa fila no está sumada en los totales de la primera.
+      orden.facturada_aparte
+        ? { value: 'Delivery facturado aparte', type: String, textColor: '#92400E' }
+        : texto(ETIQUETA_TIPO[orden.tipo]),
       texto(orden.cliente_nombre),
       texto(orden.cliente_telefono),
       texto(orden.direccion),
@@ -375,7 +414,7 @@ function hojaDetalle(ordenes: OrdenDetalle[], referencias: Map<string, string>):
       // Como texto a propósito: una referencia de doce dígitos guardada como
       // número perdería los ceros de adelante y Excel la mostraría en notación
       // científica, que es justo el dato que hay que poder buscar y cotejar.
-      texto(referencias.get(orden.id) ?? ''),
+      texto(orden.referencias ?? ''),
     ])
   }
 
@@ -484,7 +523,7 @@ function hojaPagos(ordenes: OrdenDetalle[], pagos: PagoDelCierre[], tasa: number
 
 // --- Liquidación de repartidores --------------------------------------------
 
-const ANCHOS_LIQUIDACION = [{ width: 14 }, { width: 12 }, { width: 26 }, { width: 22 }, { width: 14 }]
+const ANCHOS_LIQUIDACION = [{ width: 14 }, { width: 12 }, { width: 24 }, { width: 22 }, { width: 20 }, { width: 14 }]
 
 /**
  * Liquidación: a quién hay que pagarle cuánto.
@@ -505,8 +544,8 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
     desde === hasta ? formatearFecha(desde) : `Del ${formatearFecha(desde)} al ${formatearFecha(hasta)}`
 
   const filas: Row[] = [
-    titulo('Broaster Express La Candelaria', 5),
-    subtitulo(`Liquidación de repartidores — ${rango}`, 5),
+    titulo('Broaster Express La Candelaria', 6),
+    subtitulo(`Liquidación de repartidores — ${rango}`, 6),
     FILA_VACIA,
   ]
 
@@ -528,11 +567,11 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
           textColor: ROJO,
           bottomBorderStyle: 'thin',
           bottomBorderColor: ROJO,
-          columnSpan: 5,
+          columnSpan: 6,
         },
-        ...vacias(4),
+        ...vacias(5),
       ],
-      encabezados(['Fecha', 'Factura', 'Cliente', 'Cobrado en', 'A pagar $']),
+      encabezados(['Fecha', 'Factura', 'Cliente', 'Cobrado en', 'Referencia', 'A pagar $']),
     )
 
     for (const orden of [...suyas].sort(
@@ -545,6 +584,8 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
         texto(orden.numero_factura),
         texto(orden.cliente_nombre),
         texto(ETIQUETA_MONEDA_COBRO[monedaDeCobro(orden)]),
+        // Al lado de la factura, siempre: es con lo que se coteja cada carrera.
+        texto(orden.referencias ?? ''),
         dinero(orden.pago_repartidor_usd),
       ])
     }
@@ -554,9 +595,9 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
         {
           value: `${suyas.length} carrera${suyas.length === 1 ? '' : 's'} — ${resumenMonedas(suyas)}`,
           fontWeight: 'bold',
-          columnSpan: 4,
+          columnSpan: 5,
         },
-        ...vacias(3),
+        ...vacias(4),
         {
           value: subtotal,
           type: Number,
@@ -572,8 +613,8 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
   }
 
   filas.push([
-    { value: 'TOTAL A PAGAR', fontWeight: 'bold', fontSize: 12, columnSpan: 3 },
-    ...vacias(2),
+    { value: 'TOTAL A PAGAR', fontWeight: 'bold', fontSize: 12, columnSpan: 4 },
+    ...vacias(3),
     { value: `${carrerasGenerales} carreras`, fontWeight: 'bold', align: 'right' },
     {
       value: totalGeneral,
@@ -590,13 +631,18 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
   // Las que no se le pagan a nadie se listan aparte, para que no se pierdan.
   const sinAsignar = ordenes.filter((o) => !o.repartidor_id && o.estado !== 'anulada' && o.tipo !== 'pickup')
   if (sinAsignar.length) {
-    filas.push(FILA_VACIA, seccion('Carreras sin repartidor asignado', 5), encabezados(['Fecha', 'Factura', 'Cliente', 'Zona', 'Delivery $']))
+    filas.push(
+      FILA_VACIA,
+      seccion('Carreras sin repartidor asignado', 6),
+      encabezados(['Fecha', 'Factura', 'Cliente', 'Zona', 'Referencia', 'Delivery $']),
+    )
     for (const orden of sinAsignar) {
       filas.push([
         texto(formatearFecha(orden.fecha_operativa)),
         { value: orden.numero_factura, type: String, textColor: ROJO },
         texto(orden.cliente_nombre),
         texto(orden.zona),
+        texto(orden.referencias ?? ''),
         dinero(orden.tarifa_cliente_usd),
       ])
     }
@@ -609,19 +655,29 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
   // cuánto de ese total conviene pagarlo con los dólares de la caja y cuánto con
   // lo que entró en bolívares.
   //
-  // Las mixtas (parte pago móvil, parte efectivo) solo agregan su par de
-  // columnas si alguna ocurrió; si no, serían dos columnas de ceros.
+  // Cada categoría ocupa dos columnas —cuántas carreras y cuánto se paga por
+  // ellas— y solo aparece si ocurrió: si nadie cobró mixto ni hubo comandas
+  // facturadas aparte, esas columnas serían ceros y estorbarían.
   const totalConteo = carrerasPorMoneda(conRepartidor)
-  const hayMixtas = totalConteo.MIXTO > 0 || totalConteo.SIN_PAGO > 0
+  const totalPagar = pagoPorMoneda(conRepartidor)
+
+  const CATEGORIAS: Array<{ clave: MonedaCobro; cabecera: string }> = [
+    { clave: 'USD', cabecera: 'Carreras en $' },
+    { clave: 'BS', cabecera: 'Carreras en Bs' },
+    { clave: 'MIXTO', cabecera: 'Carreras mixtas' },
+    { clave: 'FACTURADA', cabecera: 'Carreras facturadas aparte' },
+    { clave: 'SIN_PAGO', cabecera: 'Carreras sin pago cargado' },
+  ]
+  // Los dólares y los bolívares van siempre, aunque uno de los dos esté en cero:
+  // ver un cero ahí también informa. El resto solo si ocurrió.
+  const categorias = CATEGORIAS.filter(
+    ({ clave }) => clave === 'USD' || clave === 'BS' || totalConteo[clave] > 0,
+  )
 
   const cabecerasResumen = [
     'Repartidor',
     'Carreras',
-    'Carreras en $',
-    'A pagar por esas $',
-    'Carreras en Bs',
-    'A pagar por esas $',
-    ...(hayMixtas ? ['Carreras mixtas', 'A pagar por esas $'] : []),
+    ...categorias.flatMap(({ cabecera }) => [cabecera, 'A pagar por esas $']),
     'TOTAL a pagar $',
   ]
 
@@ -640,28 +696,18 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
     resumen.push([
       texto(nombre),
       entero(suyas.length),
-      entero(conteo.USD),
-      dinero(pagar.USD),
-      entero(conteo.BS),
-      dinero(pagar.BS),
-      ...(hayMixtas
-        ? [entero(conteo.MIXTO + conteo.SIN_PAGO), dinero(pagar.MIXTO + pagar.SIN_PAGO)]
-        : []),
-      dinero(suyas.reduce((suma, o) => suma + Number(o.pago_repartidor_usd), 0), true),
+      ...categorias.flatMap(({ clave }) => [entero(conteo[clave]), dinero(pagar[clave])]),
+      dinero(
+        suyas.reduce((suma, o) => suma + Number(o.pago_repartidor_usd), 0),
+        true,
+      ),
     ])
   }
 
-  const totalPagar = pagoPorMoneda(conRepartidor)
   resumen.push([
     texto('Total', true),
     entero(carrerasGenerales, true),
-    entero(totalConteo.USD, true),
-    dinero(totalPagar.USD, true),
-    entero(totalConteo.BS, true),
-    dinero(totalPagar.BS, true),
-    ...(hayMixtas
-      ? [entero(totalConteo.MIXTO + totalConteo.SIN_PAGO, true), dinero(totalPagar.MIXTO + totalPagar.SIN_PAGO, true)]
-      : []),
+    ...categorias.flatMap(({ clave }) => [entero(totalConteo[clave], true), dinero(totalPagar[clave], true)]),
     dinero(totalGeneral, true),
   ])
 
@@ -674,11 +720,7 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
         columns: [
           { width: 26 },
           { width: 10 },
-          { width: 13 },
-          { width: 18 },
-          { width: 14 },
-          { width: 18 },
-          ...(hayMixtas ? [{ width: 15 }, { width: 18 }] : []),
+          ...categorias.flatMap(({ cabecera }) => [{ width: Math.max(cabecera.length + 2, 13) }, { width: 18 }]),
           { width: 16 },
         ],
       },

@@ -52,7 +52,13 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
 - **Verificación**: la administradora ve la captura del pago al lado de lo que
   se tecleó y aprueba con un botón. Ya no coteja contra papel impreso.
 - **Cierre del día**: totales por forma de pago, delivery cobrado, total a pagar
-  a repartidores y margen. Al cerrar, la jornada queda congelada.
+  a repartidores y margen, más la lista de pagos recibidos con **su número de
+  referencia**, que es lo que se va tachando contra el banco. Al cerrar, la
+  jornada queda congelada.
+- **Comandas facturadas aparte**: la de delivery que el cliente pide con factura
+  fiscal se cobra por la caja del local. Se carga marcada, **no suma en ningún
+  total del cierre** y sale en su propio apartado; lo único que genera es la
+  carrera del repartidor que la llevó, que sí se le paga.
 - **Liquidación de repartidores**: cuántas carreras hizo cada uno y cuánto se le
   debe, por día o por rango de fechas. Lo que se le debe sale siempre en
   dólares —así está tarifada cada zona— pero separado según con qué plata entró
@@ -63,12 +69,14 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
     forma de pago y por zona, y una lista de lo que quedó por revisar. El
     detalle de las órdenes va en su propia hoja, y los pagos en otra: un renglón
     por transacción con **su número de referencia**, la cuenta que la recibió y
-    el banco del cliente, que es lo que se va tachando contra el banco.
+    el banco del cliente, que es lo que se va tachando contra el banco. Las
+    facturadas aparte van en su propia sección, fuera de todos los totales.
   - **Liquidación** — a quién pagarle cuánto: agrupada por repartidor, con sus
     carreras listadas debajo y el subtotal de cada uno, más una hoja de resumen
-    de una línea por persona con el monto en dólares partido en tres: lo que
-    corresponde a carreras cobradas en dólares, lo de las cobradas en bolívares
-    y el total.
+    de una línea por persona con el monto en dólares partido por categoría: lo
+    que corresponde a carreras cobradas en dólares, lo de las cobradas en
+    bolívares, lo de las mixtas, lo de las facturadas aparte, y el total. Cada
+    carrera va con su referencia al lado del número de factura.
 
 ## De la hoja de papel a la app
 
@@ -136,6 +144,9 @@ como administrador activo, porque no hay todavía nadie que pueda darle acceso.
      antes del cambio de nombre
    - `0010_monedas_y_factura_anulada.sql` — separa lo cobrado en cada moneda y
      libera el número de factura de las órdenes anuladas
+   - `0011_facturada_aparte_y_referencias.sql` — comandas de delivery
+     facturadas por la caja del local, y las referencias de los pagos al lado de
+     cada factura
 
 > En **Authentication → Providers → Email**, desactivar **"Confirm email"**. Los
 > usuarios sin correo real usan direcciones internas que no reciben nada, así

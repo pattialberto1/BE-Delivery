@@ -84,6 +84,10 @@ export function Liquidacion() {
   // cargado solo ocupan columna si existen; si no, serían una columna de rayas.
   const mixtas = totalMonedas.MIXTO + totalMonedas.SIN_PAGO
   const pagarMixtas = totalPorMoneda.MIXTO + totalPorMoneda.SIN_PAGO
+  // Las facturadas por la caja del local llevan columna propia: su carrera se
+  // paga igual, pero con plata que no está en la caja del delivery.
+  const facturadas = totalMonedas.FACTURADA
+  const pagarFacturadas = totalPorMoneda.FACTURADA
 
   const unSoloDia = desde === hasta
 
@@ -148,6 +152,15 @@ export function Liquidacion() {
                   }
                 />
               )}
+              {facturadas > 0 && (
+                <Dato
+                  etiqueta="De comandas facturadas aparte"
+                  valor={formatearUSD(pagarFacturadas)}
+                  detalle={`${facturadas} carrera${facturadas === 1 ? '' : 's'} cobrada${
+                    facturadas === 1 ? '' : 's'
+                  } por la caja del local`}
+                />
+              )}
               {conMargen && (
                 <Dato
                   etiqueta="Margen del delivery"
@@ -167,6 +180,7 @@ export function Liquidacion() {
                     <th className="py-2 pr-3 text-right">Cobradas en $</th>
                     <th className="py-2 pr-3 text-right">Cobradas en Bs</th>
                     {mixtas > 0 && <th className="py-2 pr-3 text-right">Mixtas</th>}
+                    {facturadas > 0 && <th className="py-2 pr-3 text-right">Facturadas aparte</th>}
                     <th className="py-2 pr-3 text-right">A pagar</th>
                     {conMargen && (
                       <>
@@ -190,6 +204,12 @@ export function Liquidacion() {
                         <CeldaMoneda
                           carreras={suyasMixtas}
                           pagar={(suyo?.pagar.MIXTO ?? 0) + (suyo?.pagar.SIN_PAGO ?? 0)}
+                        />
+                      )}
+                      {facturadas > 0 && (
+                        <CeldaMoneda
+                          carreras={suyo?.carreras.FACTURADA ?? 0}
+                          pagar={suyo?.pagar.FACTURADA ?? 0}
                         />
                       )}
                       <td className="py-2.5 pr-3 text-right text-lg font-bold tabular-nums text-slate-900">
@@ -216,6 +236,7 @@ export function Liquidacion() {
                     <CeldaMoneda carreras={totalMonedas.USD} pagar={totalPorMoneda.USD} />
                     <CeldaMoneda carreras={totalMonedas.BS} pagar={totalPorMoneda.BS} />
                     {mixtas > 0 && <CeldaMoneda carreras={mixtas} pagar={pagarMixtas} />}
+                    {facturadas > 0 && <CeldaMoneda carreras={facturadas} pagar={pagarFacturadas} />}
                     <td className="py-2.5 pr-3 text-right text-lg tabular-nums">{formatearUSD(totalPagar)}</td>
                     {conMargen && (
                       <>

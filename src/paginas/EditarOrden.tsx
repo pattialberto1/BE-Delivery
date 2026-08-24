@@ -65,6 +65,7 @@ export function EditarOrden() {
     setOrden(o)
     setForm({
       tipo: o.tipo,
+      facturada_aparte: o.facturada_aparte,
       numero_factura: o.numero_factura,
       cliente_nombre: o.cliente_nombre,
       cliente_telefono: o.cliente_telefono ?? '',
@@ -101,6 +102,7 @@ export function EditarOrden() {
   const datosAValidar: DatosOrdenAValidar = useMemo(
     () => ({
       tipo: form.tipo,
+      facturada_aparte: form.facturada_aparte,
       numero_factura: form.numero_factura,
       cliente_nombre: form.cliente_nombre,
       direccion: form.direccion,
@@ -150,6 +152,7 @@ export function EditarOrden() {
         .from('ordenes')
         .update({
           tipo: form.tipo,
+          facturada_aparte: form.facturada_aparte,
           numero_factura: form.numero_factura.trim(),
           cliente_nombre: form.cliente_nombre.trim(),
           cliente_telefono: form.cliente_telefono.trim() || null,
@@ -172,7 +175,9 @@ export function EditarOrden() {
         if (errorBorrado) throw errorBorrado
       }
 
-      const { error: errorPagos } = await supabase.from('pagos').insert(
+      // Sin pagos no hay nada que insertar: es el caso de la comanda facturada
+      // aparte, que se cobró por la caja del local.
+      const { error: errorPagos } = pagos.length === 0 ? { error: null } : await supabase.from('pagos').insert(
         pagos.map((pago, i) => ({
           orden_id: orden.id,
           metodo: pago.metodo,
