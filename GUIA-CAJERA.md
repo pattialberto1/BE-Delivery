@@ -18,6 +18,20 @@ bolívares por dólar). Se carga una sola vez y sirve para toda la jornada.
 
 Todo se hace en la pestaña **Nueva orden**, de arriba hacia abajo.
 
+### 0. Revisa la jornada
+
+Arriba del formulario dice en qué **jornada** estás cargando. Normalmente es la
+de hoy y no hay que tocar nada.
+
+**Si ayer quedó una comanda sin anotar**, cambia la fecha ahí y cárgala en su
+día: entra en el cierre de ese día, no en el de hoy. Mientras la fecha no sea la
+de hoy la barra se pone amarilla y el botón de guardar lo dice, para que no se
+cuele una comanda de hoy en el día equivocado. Cuando termines, toca **Volver a
+hoy**.
+
+Si esa jornada ya se cerró, el sistema avisa y no deja guardar: la
+administradora tiene que reabrirla desde **Cierre**, y volver a cerrarla después.
+
 ### 1. Elige el tipo
 
 Arriba de todo hay dos botones:

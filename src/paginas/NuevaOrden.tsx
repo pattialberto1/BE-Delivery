@@ -6,6 +6,7 @@ import {
   aNumero,
   calcularResumen,
   formatearBS,
+  formatearFecha,
   formatearUSD,
   fuerzaDeDuplicado,
   normalizarReferencia,
@@ -20,11 +21,30 @@ import { type Choque } from '../componentes/FilaPago'
 import { FormularioOrden } from '../componentes/FormularioOrden'
 import { formularioVacio, pagoVacio } from '../lib/borradores'
 
-const CLAVE_BORRADOR = 'be-delivery:borrador-orden'
+/** El borrador se guarda por jornada: cada día tiene el suyo. */
+function claveBorrador(fecha: string) {
+  return `be-delivery:borrador-orden:${fecha}`
+}
 
 export function NuevaOrden() {
-  const { zonas, repartidores, bancos, cuentas, hoy, usuario } = useSesion()
-  const { tasa, cargando: cargandoTasa, guardar: guardarTasa } = useTasa(hoy)
+  const { zonas, repartidores, bancos, cuentas, hoy, usuario, esAdmin } = useSesion()
+
+  /**
+   * En qué jornada se está cargando.
+   *
+   * Casi siempre es hoy, pero pasa que al día siguiente aparecen comandas que se
+   * quedaron sin anotar, y sin esto no había forma de meterlas: quedaban fuera
+   * del cierre para siempre y la hoja de la cajera dejaba de cuadrar con el
+   * sistema. No se admiten fechas futuras.
+   */
+  const [fecha, setFecha] = useState(hoy)
+  const esHoy = fecha === hoy
+
+  const { tasa, cargando: cargandoTasa, guardar: guardarTasa } = useTasa(fecha)
+
+  // Un día cerrado está congelado: la base lo rechaza. Se avisa antes de
+  // teclear, no después de llenar la comanda entera.
+  const [cerrada, setCerrada] = useState(false)
 
   const [form, setForm] = useState(formularioVacio)
   const [pagos, setPagos] = useState<BorradorPago[]>(() => [pagoVacio()])
@@ -51,26 +71,37 @@ export function NuevaOrden() {
 
   useEffect(() => {
     try {
-      const crudo = localStorage.getItem(CLAVE_BORRADOR)
+      const crudo = localStorage.getItem(claveBorrador(fecha))
       if (!crudo) return
-      const guardado = JSON.parse(crudo) as { form: typeof form; pagos: BorradorPago[]; fecha: string }
-      if (guardado.fecha !== hoy) {
-        localStorage.removeItem(CLAVE_BORRADOR)
-        return
-      }
+      const guardado = JSON.parse(crudo) as { form: typeof form; pagos: BorradorPago[] }
       if (guardado.form) setForm(guardado.form)
       if (guardado.pagos?.length) setPagos(guardado.pagos.map((p) => ({ ...p, archivo: undefined })))
     } catch {
-      localStorage.removeItem(CLAVE_BORRADOR)
+      localStorage.removeItem(claveBorrador(fecha))
     }
-  }, [hoy])
+  }, [fecha])
 
   useEffect(() => {
     const vacio = !form.numero_factura && !form.cliente_nombre && !form.direccion
     if (vacio) return
     const serializables = pagos.map(({ archivo: _archivo, ...resto }) => resto)
-    localStorage.setItem(CLAVE_BORRADOR, JSON.stringify({ form, pagos: serializables, fecha: hoy }))
-  }, [form, pagos, hoy])
+    localStorage.setItem(claveBorrador(fecha), JSON.stringify({ form, pagos: serializables }))
+  }, [form, pagos, fecha])
+
+  useEffect(() => {
+    let vigente = true
+    void (async () => {
+      const { data } = await supabase
+        .from('cierres')
+        .select('fecha_operativa')
+        .eq('fecha_operativa', fecha)
+        .maybeSingle()
+      if (vigente) setCerrada(Boolean(data))
+    })()
+    return () => {
+      vigente = false
+    }
+  }, [fecha])
 
   // ---------------------------------------------------------------------
   // Validación
@@ -100,7 +131,7 @@ export function NuevaOrden() {
   // que dos pagos distintos compartan los mismos números es normal, y dejar a la
   // cajera sin poder guardar con el cliente en línea sería peor que el problema
   // que se quiere evitar. Lo decide ella con el monto a la vista.
-  const bloqueado = tieneErrores(problemas) || facturaDuplicada
+  const bloqueado = tieneErrores(problemas) || facturaDuplicada || cerrada
 
   const erroresPorCampo = useMemo(() => {
     const mapa: Record<string, string> = {}
@@ -196,13 +227,13 @@ export function NuevaOrden() {
       const { data } = await supabase
         .from('ordenes')
         .select('id')
-        .eq('fecha_operativa', hoy)
+        .eq('fecha_operativa', fecha)
         .eq('numero_factura', factura)
         .maybeSingle()
       setFacturaDuplicada(Boolean(data))
     }, 500)
     return () => clearTimeout(id)
-  }, [form.numero_factura, hoy])
+  }, [form.numero_factura, fecha])
 
   // ---------------------------------------------------------------------
   // Guardar
@@ -214,8 +245,35 @@ export function NuevaOrden() {
     setTocado(false)
     setChoques({})
     setFacturaDuplicada(false)
-    localStorage.removeItem(CLAVE_BORRADOR)
+    localStorage.removeItem(claveBorrador(fecha))
     refFactura.current?.focus()
+  }
+
+  /**
+   * Cambia de jornada.
+   *
+   * Se hace a mano y no con un efecto para que no quede un borrador a medias
+   * escrito en el día equivocado: lo que estaba tecleado se descarta acá mismo,
+   * avisando antes si había algo.
+   */
+  function cambiarJornada(nueva: string) {
+    if (!nueva || nueva === fecha) return
+    const hayAlgo =
+      form.numero_factura.trim() ||
+      form.cliente_nombre.trim() ||
+      pagos.some((p) => p.monto.trim() || p.referencia.trim())
+    if (hayAlgo && !window.confirm('Vas a cambiar de jornada y se pierde lo que está a medio llenar. ¿Seguir?')) {
+      return
+    }
+    localStorage.removeItem(claveBorrador(fecha))
+    setForm(formularioVacio())
+    setPagos([pagoVacio()])
+    setTocado(false)
+    setChoques({})
+    setFacturaDuplicada(false)
+    setExito(null)
+    setErrorGuardado(null)
+    setFecha(nueva)
   }
 
   async function guardar() {
@@ -234,13 +292,13 @@ export function NuevaOrden() {
       // Las capturas van primero: si una falla, no queremos una orden a medias
       // en la base esperando comprobantes que nunca llegaron.
       const rutas = await Promise.all(
-        pagos.map(async (pago) => (pago.archivo ? subirCaptura(pago.archivo, hoy) : (pago.imagen_path ?? null))),
+        pagos.map(async (pago) => (pago.archivo ? subirCaptura(pago.archivo, fecha) : (pago.imagen_path ?? null))),
       )
 
       const { data: orden, error: errorOrden } = await supabase
         .from('ordenes')
         .insert({
-          fecha_operativa: hoy,
+          fecha_operativa: fecha,
           numero_factura: form.numero_factura.trim(),
           cliente_nombre: form.cliente_nombre.trim(),
           cliente_telefono: form.cliente_telefono.trim() || null,
@@ -288,7 +346,11 @@ export function NuevaOrden() {
         throw errorPagos
       }
 
-      setExito(`Factura ${form.numero_factura.trim()} guardada.`)
+      setExito(
+        esHoy
+          ? `Factura ${form.numero_factura.trim()} guardada.`
+          : `Factura ${form.numero_factura.trim()} guardada en la jornada del ${formatearFecha(fecha)}.`,
+      )
       limpiar()
     } catch (e) {
       if (ordenCreada) await supabase.from('ordenes').delete().eq('id', ordenCreada)
@@ -302,17 +364,66 @@ export function NuevaOrden() {
   // Sin tasa del día no se puede cuadrar nada: se pide antes de todo.
   // ---------------------------------------------------------------------
 
+  /**
+   * La barra de jornada va en las dos salidas de la pantalla —la de pedir la
+   * tasa y la del formulario—, porque si solo apareciera en la segunda, un día
+   * viejo sin tasa dejaría a la cajera encerrada sin poder volver a hoy.
+   */
+  const barraJornada = (
+    <div
+      className={`flex flex-wrap items-center gap-3 rounded-xl border-2 p-3 ${
+        esHoy ? 'border-slate-200 bg-white' : 'border-amber-400 bg-amber-50'
+      }`}
+    >
+      <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        Jornada
+        <Entrada
+          type="date"
+          value={fecha}
+          max={hoy}
+          onChange={(e) => cambiarJornada(e.target.value)}
+          className="min-h-10 w-auto text-sm"
+        />
+      </label>
+      {esHoy ? (
+        <span className="text-sm text-slate-500">
+          Si ayer quedó una comanda sin anotar, cambia la fecha y cárgala en su día.
+        </span>
+      ) : (
+        <>
+          <span className="flex-1 text-sm font-semibold text-amber-900">
+            Estás cargando en la jornada del {formatearFecha(fecha)}, no en la de hoy.
+          </span>
+          <Boton variante="secundario" className="min-h-9 text-sm" onClick={() => cambiarJornada(hoy)}>
+            Volver a hoy
+          </Boton>
+        </>
+      )}
+    </div>
+  )
+
+  const avisoCerrada = cerrada && (
+    <Alerta tono="error" titulo={`La jornada del ${formatearFecha(fecha)} está cerrada`}>
+      Mientras siga cerrada nadie puede agregarle órdenes.{' '}
+      {esAdmin
+        ? 'Reábrela desde Cierre, carga lo que falta y vuelve a cerrarla.'
+        : 'Pídele a la administradora que la reabra desde Cierre.'}
+    </Alerta>
+  )
+
   if (cargandoTasa) return null
 
   if (!tasa) {
     return (
-      <Tarjeta titulo="Abrir la jornada" className="mx-auto max-w-lg">
+      <div className="mx-auto max-w-lg space-y-4">
+        {barraJornada}
+        <Tarjeta titulo={esHoy ? 'Abrir la jornada' : `Abrir la jornada del ${formatearFecha(fecha)}`}>
         <div className="space-y-4">
           <Alerta tono="info">
-            Antes de cargar órdenes hay que registrar la tasa del día. El delivery se cobra en dólares pero el pago
+            Antes de cargar órdenes hay que registrar la tasa de ese día. El delivery se cobra en dólares pero el pago
             móvil entra en bolívares, así que sin la tasa no se puede cuadrar la caja.
           </Alerta>
-          <Campo etiqueta="Tasa de hoy (Bs por $)" requerido>
+          <Campo etiqueta={esHoy ? 'Tasa de hoy (Bs por $)' : 'Tasa de ese día (Bs por $)'} requerido>
             <Entrada
               value={tasaTexto}
               onChange={(e) => setTasaTexto(e.target.value)}
@@ -336,12 +447,15 @@ export function NuevaOrden() {
           </Boton>
           {errorGuardado && <Alerta tono="error">{errorGuardado}</Alerta>}
         </div>
-      </Tarjeta>
+        </Tarjeta>
+      </div>
     )
   }
 
   return (
     <div className="space-y-4">
+      {barraJornada}
+      {avisoCerrada}
       {exito && <Alerta tono="exito">{exito}</Alerta>}
       {errorGuardado && <Alerta tono="error" titulo="No se pudo guardar">{errorGuardado}</Alerta>}
 
@@ -429,8 +543,10 @@ export function NuevaOrden() {
           )}
 
           <div className="space-y-2">
-            <Boton ancho onClick={() => void guardar()} disabled={guardando || (tocado && bloqueado)}>
-              {guardando ? 'Guardando…' : 'Guardar orden'}
+            {/* Con la jornada cerrada se apaga de una: no es un error que se
+                pueda corregir tecleando, y la base lo rechazaría igual. */}
+            <Boton ancho onClick={() => void guardar()} disabled={guardando || cerrada || (tocado && bloqueado)}>
+              {guardando ? 'Guardando…' : esHoy ? 'Guardar orden' : `Guardar en la jornada del ${formatearFecha(fecha)}`}
             </Boton>
             <Boton variante="secundario" ancho onClick={limpiar} disabled={guardando}>
               Limpiar

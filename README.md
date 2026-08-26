@@ -43,6 +43,11 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
   resto en dólares, la app detecta lo que falta y ofrece agregarlo con el monto
   y la forma ya propuestos. Cada orden guarda sus pagos por separado, así que el
   cierre y la liquidación saben con qué plata entró cada carrera.
+- **Cargar en una jornada anterior**: al día siguiente casi siempre aparece
+  alguna comanda que se quedó sin anotar. Se elige la fecha en el formulario y
+  la orden entra en el cierre de **ese** día, con la tasa de ese día. La pantalla
+  avisa en amarillo mientras la fecha no sea la de hoy, y si la jornada ya está
+  cerrada no deja guardar hasta que la administradora la reabra.
 - **Editar una orden ya cargada**: número de factura, cliente, zona, montos,
   repartidor y pagos. Usa el mismo formulario que la pantalla de carga, así que
   las reglas son idénticas — cambiar la zona recalcula la tarifa sola. Una orden
