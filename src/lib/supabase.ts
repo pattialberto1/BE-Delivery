@@ -113,6 +113,17 @@ export function mensajeDeError(error: unknown): string {
   if (texto.includes('row-level security') || posible.code === '42501') {
     return 'Tu usuario no tiene permiso para hacer esto.'
   }
+  // La app trae una columna que la base todavía no tiene: quedó una migración
+  // sin correr. Sin este mensaje el error llega como jerga de PostgREST y
+  // parece que la app se cayó, cuando lo que falta es un archivo de SQL.
+  if (
+    posible.code === 'PGRST204' ||
+    posible.code === '42703' ||
+    texto.includes('schema cache') ||
+    (texto.includes('column') && texto.includes('does not exist'))
+  ) {
+    return `La base de datos está desactualizada: falta correr una migración en Supabase (SQL Editor → carpeta supabase/migrations, en orden). Detalle técnico: ${texto}`
+  }
   if (texto.includes('Failed to fetch') || texto.includes('NetworkError')) {
     return 'No hay conexión con el servidor. Revisa el internet e intenta de nuevo.'
   }
