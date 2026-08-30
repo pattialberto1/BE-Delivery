@@ -63,7 +63,10 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
 - **Comandas facturadas aparte**: la de delivery que el cliente pide con factura
   fiscal se cobra por la caja del local. Se carga marcada, **no suma en ningún
   total del cierre** y sale en su propio apartado; lo único que genera es la
-  carrera del repartidor que la llevó, que sí se le paga.
+  carrera del repartidor que la llevó, que sí se le paga. Se pide además **con
+  qué moneda cobró la otra caja** —bolívares, dólares o parte y parte—: no lleva
+  monto ni referencia, solo eso, porque es lo que dice de dónde sale la plata
+  para esa carrera.
 - **Liquidación de repartidores**: cuántas carreras hizo cada uno y cuánto se le
   debe, por día o por rango de fechas. Lo que se le debe sale siempre en
   dólares —así está tarifada cada zona— pero separado según con qué plata entró
@@ -152,6 +155,8 @@ como administrador activo, porque no hay todavía nadie que pueda darle acceso.
    - `0011_facturada_aparte_y_referencias.sql` — comandas de delivery
      facturadas por la caja del local, y las referencias de los pagos al lado de
      cada factura
+   - `0012_moneda_de_la_facturada_aparte.sql` — con qué moneda cobró la caja del
+     local esas comandas
 
 > En **Authentication → Providers → Email**, desactivar **"Confirm email"**. Los
 > usuarios sin correo real usan direcciones internas que no reciben nada, así

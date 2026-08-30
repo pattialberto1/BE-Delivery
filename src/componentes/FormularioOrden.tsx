@@ -1,5 +1,6 @@
 import type { Banco, BorradorPago, Cuenta, Repartidor, TipoOrden, Zona } from '../lib/tipos'
-import { ETIQUETA_TIPO, METODOS_PICKUP } from '../lib/tipos'
+import { ETIQUETA_MONEDA_FACTURADA, ETIQUETA_TIPO, METODOS_PICKUP } from '../lib/tipos'
+import type { MonedaFacturada } from '../lib/tipos'
 import { formatearBS, formatearUSD, metodoParaCompletar, monedaDeMetodo } from '../lib/reglas'
 import { Alerta, Boton, Campo, Entrada, Seleccion, Tarjeta, AreaTexto } from './UI'
 import { FilaPago, type Choque } from './FilaPago'
@@ -116,7 +117,13 @@ export function FormularioOrden({
               className="mt-0.5 h-5 w-5 shrink-0"
               checked={form.facturada_aparte}
               onChange={(e) => {
-                setForm({ ...form, facturada_aparte: e.target.checked })
+                setForm({
+                  ...form,
+                  facturada_aparte: e.target.checked,
+                  // Al desmarcar, la moneda deja de tener sentido: la orden pasa
+                  // a decir en qué entró por sus propios pagos.
+                  moneda_facturada: e.target.checked ? form.moneda_facturada : '',
+                })
                 // El cobro pasó por la otra caja: acá no se carga ningún pago.
                 if (e.target.checked) setPagos(() => [])
               }}
@@ -257,6 +264,35 @@ export function FormularioOrden({
               delivery. Lo único que cuenta es la carrera del repartidor, que sí se le paga.
             </p>
           </Alerta>
+
+          {/*
+            Aunque la plata no entre acá, sí hay que saber con qué moneda entró:
+            es lo que decide de cuál caja sale la carrera del repartidor.
+          */}
+          <div className="mt-4">
+            <p className="mb-2 text-sm font-semibold text-slate-700">
+              ¿Con qué pagó el cliente? <span className="text-marca-700">*</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(['BS', 'USD', 'MIXTO'] as MonedaFacturada[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setForm({ ...form, moneda_facturada: m })}
+                  className={`min-h-12 flex-1 rounded-lg border-2 px-4 font-bold transition-colors ${
+                    form.moneda_facturada === m
+                      ? 'border-marca-600 bg-marca-50 text-marca-800'
+                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {ETIQUETA_MONEDA_FACTURADA[m]}
+                </button>
+              ))}
+            </div>
+            {erroresPorCampo.moneda_facturada && (
+              <p className="mt-1.5 text-sm font-semibold text-red-700">{erroresPorCampo.moneda_facturada}</p>
+            )}
+          </div>
         </Tarjeta>
       ) : (
       <Tarjeta

@@ -108,6 +108,8 @@ interface SemillaOrden {
   divisaUsd?: number
   /** Se facturó por la caja del local: no lleva pagos acá ni suma en la caja. */
   facturadaAparte?: boolean
+  /** Con qué moneda pagó esa comanda facturada aparte. */
+  monedaFacturada?: 'BS' | 'USD' | 'MIXTO'
   notas?: string
 }
 
@@ -250,6 +252,7 @@ const SEMILLAS: SemillaOrden[] = [
     repartidor: 'r1',
     pedido: 86,
     facturadaAparte: true,
+    monedaFacturada: 'BS',
     verificada: false,
   },
   // Todo en efectivo en dólares: es la carrera que se le paga al repartidor con
@@ -296,6 +299,7 @@ export function cargarSemillas(zonasPorNombre: Map<string, { id: string; tarifa:
       numero_factura: semilla.factura,
       tipo: semilla.tipo ?? 'delivery',
       facturada_aparte: semilla.facturadaAparte ?? false,
+      moneda_facturada: semilla.monedaFacturada ?? null,
       cliente_nombre: semilla.cliente,
       cliente_telefono: semilla.telefono,
       direccion: semilla.direccion,

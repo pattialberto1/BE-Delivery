@@ -10,6 +10,7 @@ import {
   liquidacionDesdeOrdenes,
   pagoPorMoneda,
 } from '../lib/exportar'
+import { ETIQUETA_MONEDA_FACTURADA, type MonedaFacturada } from '../lib/tipos'
 import { Alerta, Boton, Cargando, ContenedorTabla, Dato, Entrada, Tarjeta, Vacio } from '../componentes/UI'
 
 /**
@@ -89,6 +90,19 @@ export function Liquidacion() {
   const facturadas = totalMonedas.FACTURADA
   const pagarFacturadas = totalPorMoneda.FACTURADA
 
+  const detalleFacturadas = useMemo(() => {
+    const suyas = entregas.filter((o) => o.facturada_aparte)
+    const partes = (['BS', 'USD', 'MIXTO'] as MonedaFacturada[])
+      .map((m) => {
+        const cuantas = suyas.filter((o) => o.moneda_facturada === m).length
+        return cuantas ? `${cuantas} en ${ETIQUETA_MONEDA_FACTURADA[m].toLowerCase()}` : null
+      })
+      .filter(Boolean)
+    const sinDecir = suyas.filter((o) => !o.moneda_facturada).length
+    if (sinDecir) partes.push(`${sinDecir} sin especificar`)
+    return partes.join(' · ')
+  }, [entregas])
+
   const unSoloDia = desde === hasta
 
   return (
@@ -156,9 +170,9 @@ export function Liquidacion() {
                 <Dato
                   etiqueta="De comandas facturadas aparte"
                   valor={formatearUSD(pagarFacturadas)}
-                  detalle={`${facturadas} carrera${facturadas === 1 ? '' : 's'} cobrada${
-                    facturadas === 1 ? '' : 's'
-                  } por la caja del local`}
+                  // Cobraron por la otra caja, pero con una moneda concreta: es
+                  // lo que dice de dónde sacar la plata para esas carreras.
+                  detalle={detalleFacturadas}
                 />
               )}
               {conMargen && (

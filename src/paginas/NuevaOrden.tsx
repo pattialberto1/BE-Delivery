@@ -111,6 +111,7 @@ export function NuevaOrden() {
     () => ({
       tipo: form.tipo,
       facturada_aparte: form.facturada_aparte,
+      moneda_facturada: form.moneda_facturada,
       numero_factura: form.numero_factura,
       cliente_nombre: form.cliente_nombre,
       direccion: form.direccion,
@@ -305,6 +306,7 @@ export function NuevaOrden() {
           direccion: form.direccion.trim() || null,
           tipo: form.tipo,
           facturada_aparte: form.facturada_aparte,
+          moneda_facturada: form.facturada_aparte ? form.moneda_facturada || null : null,
           zona_id: esPickup ? null : zonaElegida!.id,
           tarifa_cliente_usd: esPickup ? 0 : zonaElegida!.tarifa_cliente_usd,
           pago_repartidor_usd: esPickup ? 0 : zonaElegida!.pago_repartidor_usd,

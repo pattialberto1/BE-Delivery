@@ -4,7 +4,7 @@ import { useSesion } from '../contexto/Sesion'
 import { useOrdenes } from '../hooks/useOrdenes'
 import { mensajeDeError, supabase } from '../lib/supabase'
 import { detectarSaltosDeFactura, formatearFecha, formatearUSD, TOLERANCIA_DESCUADRE_USD } from '../lib/reglas'
-import { ETIQUETA_ESTADO, type OrdenDetalle } from '../lib/tipos'
+import { ETIQUETA_ESTADO, ETIQUETA_MONEDA_FACTURADA, type OrdenDetalle } from '../lib/tipos'
 import { Alerta, Boton, Cargando, ContenedorTabla, Entrada, Insignia, Seleccion, Tarjeta, Vacio } from '../componentes/UI'
 
 type Filtro = 'todas' | 'pendientes' | 'descuadradas' | 'sin_repartidor'
@@ -241,7 +241,12 @@ export function OrdenesDelDia() {
                         )}
                         {o.facturada_aparte && (
                           <div className="mt-0.5">
-                            <Insignia tono="alerta">Facturada aparte</Insignia>
+                            <Insignia tono="alerta">
+                              Facturada aparte
+                              {o.moneda_facturada
+                                ? ` · ${ETIQUETA_MONEDA_FACTURADA[o.moneda_facturada].toLowerCase()}`
+                                : ' · sin moneda'}
+                            </Insignia>
                           </div>
                         )}
                       </td>

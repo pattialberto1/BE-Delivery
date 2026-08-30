@@ -11,7 +11,9 @@ import {
 } from '../lib/reglas'
 import {
   ETIQUETA_METODO,
+  ETIQUETA_MONEDA_FACTURADA,
   type Cierre as CierreRegistro,
+  type MonedaFacturada,
   type MetodoPago,
   type Pago,
   type TotalesCierre,
@@ -364,6 +366,7 @@ export function Cierre() {
                   <th className="py-2 pr-3">Cliente</th>
                   <th className="py-2 pr-3">Zona</th>
                   <th className="py-2 pr-3">Repartidor</th>
+                  <th className="py-2 pr-3">Pagó en</th>
                   <th className="py-2 pr-3 text-right">Pedido (no suma)</th>
                   <th className="py-2 text-right">Carrera a pagar</th>
                 </tr>
@@ -377,6 +380,13 @@ export function Cierre() {
                     <td className="py-2 pr-3">
                       {o.repartidor ?? <Insignia tono="alerta">Sin asignar</Insignia>}
                     </td>
+                    <td className="py-2 pr-3">
+                      {o.moneda_facturada ? (
+                        ETIQUETA_MONEDA_FACTURADA[o.moneda_facturada]
+                      ) : (
+                        <Insignia tono="alerta">Sin especificar</Insignia>
+                      )}
+                    </td>
                     <td className="py-2 pr-3 text-right tabular-nums text-slate-400">
                       {formatearUSD(o.monto_pedido_usd)}
                     </td>
@@ -388,7 +398,7 @@ export function Cierre() {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-slate-300 font-bold">
-                  <td className="py-2 pr-3" colSpan={4}>
+                  <td className="py-2 pr-3" colSpan={5}>
                     Solo esto se paga
                   </td>
                   <td className="py-2 pr-3 text-right text-slate-400">—</td>
@@ -399,6 +409,23 @@ export function Cierre() {
               </tfoot>
             </table>
           </ContenedorTabla>
+
+          {/* Con qué plata hay que pagar esas carreras: la moneda con la que
+              cobró la otra caja es la que decide de dónde sale. */}
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {(['BS', 'USD', 'MIXTO'] as MonedaFacturada[]).map((m) => {
+              const suyas = facturadas.filter((o) => o.moneda_facturada === m)
+              if (suyas.length === 0) return null
+              return (
+                <Dato
+                  key={m}
+                  etiqueta={`Cobradas en ${ETIQUETA_MONEDA_FACTURADA[m].toLowerCase()}`}
+                  valor={formatearUSD(suyas.reduce((s, o) => s + Number(o.pago_repartidor_usd), 0))}
+                  detalle={`${suyas.length} carrera${suyas.length === 1 ? '' : 's'} por pagar`}
+                />
+              )
+            })}
+          </div>
         </Tarjeta>
       )}
 

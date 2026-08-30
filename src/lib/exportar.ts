@@ -10,8 +10,14 @@ import {
   type OrdenDetalle,
   type TotalesCierre,
 } from './tipos'
-import { detectarSaltosDeFactura, formatearFecha, monedaDeCobro, TOLERANCIA_DESCUADRE_USD } from './reglas'
-import { ETIQUETA_MONEDA_COBRO } from './tipos'
+import {
+  detectarSaltosDeFactura,
+  etiquetaDeCobro,
+  formatearFecha,
+  monedaDeCobro,
+  TOLERANCIA_DESCUADRE_USD,
+} from './reglas'
+import { ETIQUETA_MONEDA_COBRO, ETIQUETA_MONEDA_FACTURADA, type MonedaFacturada } from './tipos'
 
 /**
  * Un pago del día con los nombres ya resueltos.
@@ -147,7 +153,9 @@ function renglonResumen(concepto: string, usd: number, tasa: number, negrita = f
 
 // --- Cierre de jornada ------------------------------------------------------
 
-const ANCHOS_CIERRE = [{ width: 30 }, { width: 16 }, { width: 18 }, { width: 14 }]
+// Cinco columnas: las secciones de arriba usan cuatro, y la de facturadas
+// aparte necesita una más para el repartidor y la moneda.
+const ANCHOS_CIERRE = [{ width: 30 }, { width: 20 }, { width: 18 }, { width: 16 }, { width: 16 }]
 
 /**
  * Reporte de cierre: cómo cerró el día.
@@ -258,17 +266,17 @@ export async function exportarCierre(
   if (facturadas.length) {
     filas.push(
       FILA_VACIA,
-      seccion('Facturadas aparte por caja — NO suman en la caja del delivery', 4),
+      seccion('Facturadas aparte por caja — NO suman en la caja del delivery', 5),
       [
         {
           value:
-            'Estas comandas salieron con factura fiscal por la caja del local. Sus montos no están incluidos en ningún total de este cierre. Lo único que hay que pagar es la carrera de cada una.',
+            'Estas comandas salieron con factura fiscal por la caja del local. Sus montos no están incluidos en ningún total de este cierre. Lo único que hay que pagar es la carrera de cada una, con la plata de la moneda en que cobraron.',
           type: String,
-          columnSpan: 4,
+          columnSpan: 5,
           textColor: '#92400E',
         },
       ],
-      encabezados(['Factura fiscal', 'Cliente', 'Repartidor', 'Carrera a pagar $']),
+      encabezados(['Factura fiscal', 'Cliente', 'Repartidor', 'Pagó en', 'Carrera a pagar $']),
     )
 
     for (const orden of [...facturadas].sort((a, b) =>
@@ -278,6 +286,11 @@ export async function exportarCierre(
         texto(orden.numero_factura),
         texto(orden.cliente_nombre),
         orden.repartidor ? texto(orden.repartidor) : { value: 'SIN ASIGNAR', type: String, textColor: ROJO },
+        // Con qué moneda cobró la otra caja: es lo que decide de dónde sale la
+        // plata para pagarle la carrera al repartidor.
+        orden.moneda_facturada
+          ? texto(ETIQUETA_MONEDA_FACTURADA[orden.moneda_facturada])
+          : { value: 'SIN ESPECIFICAR', type: String, textColor: ROJO },
         dinero(orden.pago_repartidor_usd),
       ])
     }
@@ -286,11 +299,35 @@ export async function exportarCierre(
       texto('Solo esto se paga', true),
       texto(`${facturadas.length} comanda${facturadas.length === 1 ? '' : 's'}`),
       null,
+      null,
       dinero(
         facturadas.reduce((suma, o) => suma + Number(o.pago_repartidor_usd), 0),
         true,
       ),
     ])
+
+    // Y partido por moneda, que es como hay que sacar la plata para pagarlas.
+    for (const moneda of ['BS', 'USD', 'MIXTO'] as MonedaFacturada[]) {
+      const suyas = facturadas.filter((o) => o.moneda_facturada === moneda)
+      if (suyas.length === 0) continue
+      filas.push([
+        texto(`  Cobradas en ${ETIQUETA_MONEDA_FACTURADA[moneda].toLowerCase()}`),
+        entero(suyas.length),
+        null,
+        null,
+        dinero(suyas.reduce((suma, o) => suma + Number(o.pago_repartidor_usd), 0)),
+      ])
+    }
+    const sinMoneda = facturadas.filter((o) => !o.moneda_facturada)
+    if (sinMoneda.length) {
+      filas.push([
+        { value: '  Sin especificar con qué pagaron', type: String, textColor: ROJO },
+        entero(sinMoneda.length),
+        null,
+        null,
+        dinero(sinMoneda.reduce((suma, o) => suma + Number(o.pago_repartidor_usd), 0)),
+      ])
+    }
   }
 
   // Lo que quedó por revisar. Va al final, pero es lo que hay que mirar primero
@@ -583,7 +620,7 @@ export async function exportarLiquidacion(desde: string, hasta: string, ordenes:
         texto(formatearFecha(orden.fecha_operativa)),
         texto(orden.numero_factura),
         texto(orden.cliente_nombre),
-        texto(ETIQUETA_MONEDA_COBRO[monedaDeCobro(orden)]),
+        texto(etiquetaDeCobro(orden)),
         // Al lado de la factura, siempre: es con lo que se coteja cada carrera.
         texto(orden.referencias ?? ''),
         dinero(orden.pago_repartidor_usd),

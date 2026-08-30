@@ -5,6 +5,15 @@ export type EstadoOrden = 'pendiente' | 'verificada' | 'anulada'
 export type TipoOrden = 'delivery' | 'pickup'
 export type Moneda = 'BS' | 'USD'
 
+/** Con qué moneda se cobró una comanda facturada por la caja del local. */
+export type MonedaFacturada = 'BS' | 'USD' | 'MIXTO'
+
+export const ETIQUETA_MONEDA_FACTURADA: Record<MonedaFacturada, string> = {
+  BS: 'Bolívares',
+  USD: 'Dólares',
+  MIXTO: 'Parte y parte',
+}
+
 export type MetodoPago =
   | 'pago_movil'
   | 'transferencia'
@@ -79,6 +88,14 @@ export interface Orden {
    * nunca pasó por la caja del delivery: no suma en ningún total del cierre.
    */
   facturada_aparte: boolean
+  /**
+   * Con qué moneda pagó el cliente esa comanda facturada aparte.
+   *
+   * Nula en todo lo demás, y también en las que se cargaron antes de que se
+   * empezara a pedir. Su plata sigue sin sumar acá: esto dice con qué se le
+   * paga la carrera al repartidor.
+   */
+  moneda_facturada: MonedaFacturada | null
   cliente_nombre: string
   cliente_telefono: string | null
   direccion: string | null
@@ -119,6 +136,7 @@ export interface OrdenDetalle {
   numero_factura: string
   tipo: TipoOrden
   facturada_aparte: boolean
+  moneda_facturada: MonedaFacturada | null
   cliente_nombre: string
   cliente_telefono: string | null
   direccion: string | null

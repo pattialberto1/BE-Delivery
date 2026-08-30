@@ -1,4 +1,4 @@
-import type { BorradorPago, TipoOrden } from './tipos'
+import type { BorradorPago, MonedaFacturada, TipoOrden } from './tipos'
 import { monedaDeMetodo } from './reglas'
 
 /**
@@ -14,6 +14,8 @@ export interface DatosFormulario {
   tipo: TipoOrden
   /** Se facturó por la caja del local, con factura fiscal. */
   facturada_aparte: boolean
+  /** Con qué moneda pagó, solo si se facturó aparte. */
+  moneda_facturada: MonedaFacturada | ''
   numero_factura: string
   cliente_nombre: string
   cliente_telefono: string
@@ -28,6 +30,7 @@ export function formularioVacio(): DatosFormulario {
   return {
     tipo: 'delivery',
     facturada_aparte: false,
+    moneda_facturada: '',
     numero_factura: '',
     cliente_nombre: '',
     cliente_telefono: '',

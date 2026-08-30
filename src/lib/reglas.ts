@@ -7,7 +7,8 @@
  * todavía está en línea y el error se puede corregir.
  */
 
-import type { BorradorPago, MetodoPago, Moneda, MonedaCobro, TipoOrden } from './tipos'
+import type { BorradorPago, MetodoPago, Moneda, MonedaCobro, MonedaFacturada, TipoOrden } from './tipos'
+import { ETIQUETA_MONEDA_COBRO, ETIQUETA_MONEDA_FACTURADA } from './tipos'
 
 /** Métodos que no dejan rastro de referencia que se pueda cotejar después. */
 const METODOS_EFECTIVO: MetodoPago[] = ['efectivo_bs', 'efectivo_usd']
@@ -156,6 +157,27 @@ export function monedaDeCobro(orden: {
   return 'SIN_PAGO'
 }
 
+/**
+ * Cómo se nombra el cobro de una carrera en los reportes.
+ *
+ * Para casi todas es la moneda a secas. Para una facturada aparte hay que decir
+ * las dos cosas: que se cobró por la otra caja —así se entiende que su plata no
+ * está acá— y con qué moneda, que es lo que decide con qué se le paga la
+ * carrera al repartidor.
+ */
+export function etiquetaDeCobro(orden: {
+  pagado_divisa_usd: number
+  pagado_bs: number
+  facturada_aparte?: boolean
+  moneda_facturada?: MonedaFacturada | null
+}): string {
+  const base = ETIQUETA_MONEDA_COBRO[monedaDeCobro(orden)]
+  if (!orden.facturada_aparte) return base
+  return orden.moneda_facturada
+    ? `${base} · ${ETIQUETA_MONEDA_FACTURADA[orden.moneda_facturada].toLowerCase()}`
+    : `${base} · sin especificar`
+}
+
 export interface Problema {
   campo: string
   mensaje: string
@@ -167,6 +189,8 @@ export interface DatosOrdenAValidar {
   tipo: TipoOrden
   /** Se facturó por la caja del local: no entra plata a la caja del delivery. */
   facturada_aparte: boolean
+  /** Con qué moneda pagó el cliente esa comanda. Vacío mientras no se elija. */
+  moneda_facturada: MonedaFacturada | ''
   numero_factura: string
   cliente_nombre: string
   direccion: string
@@ -373,6 +397,16 @@ export function validarOrden(datos: DatosOrdenAValidar): Problema[] {
   // para poder pagarle la carrera al repartidor.
   if (!datos.facturada_aparte && datos.pagos.length === 0) {
     problemas.push({ campo: 'pagos', mensaje: 'Agrega al menos un pago.', nivel: 'error' })
+  }
+
+  // La facturada aparte no lleva pagos, pero sí hay que saber con qué moneda
+  // entró: es lo que dice con qué plata se le paga la carrera al repartidor.
+  if (datos.facturada_aparte && !datos.moneda_facturada) {
+    problemas.push({
+      campo: 'moneda_facturada',
+      mensaje: 'Di con qué pagó el cliente: bolívares, dólares o parte y parte.',
+      nivel: 'error',
+    })
   }
 
   datos.pagos.forEach((pago, indice) => {

@@ -44,6 +44,7 @@ function orden(parcial: Partial<OrdenDetalle> = {}): OrdenDetalle {
     diferencia_usd: 0,
     cantidad_pagos: 1,
     facturada_aparte: false,
+    moneda_facturada: null,
     referencias: '004521887730',
     ...parcial,
   }

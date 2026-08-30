@@ -8,6 +8,7 @@ import {
   normalizarTexto,
   referenciaEsConfiable,
   fechaOperativa,
+  etiquetaDeCobro,
   metodoParaCompletar,
   monedaDeCobro,
   monedaDeMetodo,
@@ -43,6 +44,7 @@ function orden(parcial: Partial<DatosOrdenAValidar> = {}): DatosOrdenAValidar {
   return {
     tipo: 'delivery',
     facturada_aparte: false,
+    moneda_facturada: '',
     numero_factura: '1001',
     cliente_nombre: 'María',
     direccion: 'Av. Urdaneta, edificio X',
@@ -469,14 +471,44 @@ describe('fechaOperativa', () => {
 
 describe('comandas facturadas aparte', () => {
   it('no exige pagos: el cobro fue por la caja del local', () => {
-    const problemas = validarOrden(orden({ facturada_aparte: true, pagos: [] }))
+    const problemas = validarOrden(orden({ facturada_aparte: true, moneda_facturada: 'BS', pagos: [] }))
     expect(problemas.filter((p) => p.nivel === 'error')).toEqual([])
+  })
+
+  it('sí exige decir con qué moneda pagaron', () => {
+    // Sin eso no se sabe de cuál caja sale la carrera del repartidor.
+    const problemas = validarOrden(orden({ facturada_aparte: true, moneda_facturada: '', pagos: [] }))
+    expect(problemas.some((p) => p.nivel === 'error' && p.campo === 'moneda_facturada')).toBe(true)
+  })
+
+  it('a una orden normal no le pide moneda de facturada', () => {
+    const problemas = validarOrden(orden())
+    expect(problemas.some((p) => p.campo === 'moneda_facturada')).toBe(false)
+  })
+
+  it('el reporte dice que se facturó aparte y con qué moneda', () => {
+    const base = { pagado_divisa_usd: 0, pagado_bs: 0, facturada_aparte: true }
+    expect(etiquetaDeCobro({ ...base, moneda_facturada: 'BS' })).toBe('Facturada aparte · bolívares')
+    expect(etiquetaDeCobro({ ...base, moneda_facturada: 'USD' })).toBe('Facturada aparte · dólares')
+    expect(etiquetaDeCobro({ ...base, moneda_facturada: 'MIXTO' })).toBe('Facturada aparte · parte y parte')
+    expect(etiquetaDeCobro({ ...base, moneda_facturada: null })).toBe('Facturada aparte · sin especificar')
+  })
+
+  it('a las demás las nombra por su moneda a secas', () => {
+    expect(etiquetaDeCobro({ pagado_divisa_usd: 0, pagado_bs: 480 })).toBe('Bolívares')
   })
 
   it('sigue exigiendo factura, cliente y zona', () => {
     // La comanda existe igual: sin esos datos no se sabe qué se llevó ni adónde.
     const problemas = validarOrden(
-      orden({ facturada_aparte: true, pagos: [], numero_factura: '', cliente_nombre: '', zona_id: '' }),
+      orden({
+        facturada_aparte: true,
+        moneda_facturada: 'BS',
+        pagos: [],
+        numero_factura: '',
+        cliente_nombre: '',
+        zona_id: '',
+      }),
     )
     const campos = problemas.filter((p) => p.nivel === 'error').map((p) => p.campo)
     expect(campos).toContain('numero_factura')

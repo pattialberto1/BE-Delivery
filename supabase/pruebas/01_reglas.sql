@@ -224,6 +224,31 @@ select case
   else 'FALLA: las referencias no salieron como se esperaba' end as resultado;
 
 -- ---------------------------------------------------------------------------
+\echo '8i. La moneda de la facturada aparte: solo ahí y solo BS, USD o MIXTO'
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  update ordenes set moneda_facturada = 'BS' where numero_factura = '45361';
+  raise exception 'FALLA: dejó marcar la moneda en una orden cobrada por esta caja';
+exception when check_violation then
+  raise notice 'OK';
+end $$;
+
+do $$
+begin
+  update ordenes set moneda_facturada = 'EUROS' where numero_factura = 'F-0001';
+  raise exception 'FALLA: aceptó una moneda que no existe';
+exception when check_violation then
+  raise notice 'OK';
+end $$;
+
+update ordenes set moneda_facturada = 'MIXTO' where numero_factura = 'F-0001';
+
+select case when moneda_facturada = 'MIXTO' then 'OK'
+  else 'FALLA: la vista no trajo la moneda de la facturada aparte' end as resultado
+from v_ordenes_detalle where numero_factura = 'F-0001';
+
+-- ---------------------------------------------------------------------------
 \echo '9. Con el día cerrado ya nadie puede tocar las órdenes'
 -- ---------------------------------------------------------------------------
 insert into cierres (fecha_operativa, cerrado_por)

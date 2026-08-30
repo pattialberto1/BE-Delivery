@@ -3,7 +3,7 @@ import { useSesion } from '../contexto/Sesion'
 import { useOrdenes } from '../hooks/useOrdenes'
 import { mensajeDeError, supabase, urlDeCaptura } from '../lib/supabase'
 import { formatearFecha, formatearMonto, formatearUSD, TOLERANCIA_DESCUADRE_USD } from '../lib/reglas'
-import { ETIQUETA_METODO, type Pago } from '../lib/tipos'
+import { ETIQUETA_METODO, ETIQUETA_MONEDA_FACTURADA, type Pago } from '../lib/tipos'
 import { Alerta, Boton, Cargando, Dato, Entrada, Insignia, Tarjeta, Vacio } from '../componentes/UI'
 
 /**
@@ -203,7 +203,15 @@ export function Verificacion() {
                 </p>
                 <p className="mt-1">
                   No suma en ningún total del cierre. Lo único que genera es la carrera de{' '}
-                  <strong>{formatearUSD(actual.pago_repartidor_usd)}</strong> que hay que pagarle.
+                  <strong>{formatearUSD(actual.pago_repartidor_usd)}</strong> que hay que pagarle,{' '}
+                  {actual.moneda_facturada ? (
+                    <>
+                      con la plata de un cobro en{' '}
+                      <strong>{ETIQUETA_MONEDA_FACTURADA[actual.moneda_facturada].toLowerCase()}</strong>.
+                    </>
+                  ) : (
+                    <strong>sin que se haya dicho con qué moneda cobraron</strong>
+                  )}
                 </p>
               </Alerta>
             )}

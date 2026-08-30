@@ -66,6 +66,7 @@ export function EditarOrden() {
     setForm({
       tipo: o.tipo,
       facturada_aparte: o.facturada_aparte,
+      moneda_facturada: o.moneda_facturada ?? '',
       numero_factura: o.numero_factura,
       cliente_nombre: o.cliente_nombre,
       cliente_telefono: o.cliente_telefono ?? '',
@@ -103,6 +104,7 @@ export function EditarOrden() {
     () => ({
       tipo: form.tipo,
       facturada_aparte: form.facturada_aparte,
+      moneda_facturada: form.moneda_facturada,
       numero_factura: form.numero_factura,
       cliente_nombre: form.cliente_nombre,
       direccion: form.direccion,
@@ -153,6 +155,7 @@ export function EditarOrden() {
         .update({
           tipo: form.tipo,
           facturada_aparte: form.facturada_aparte,
+          moneda_facturada: form.facturada_aparte ? form.moneda_facturada || null : null,
           numero_factura: form.numero_factura.trim(),
           cliente_nombre: form.cliente_nombre.trim(),
           cliente_telefono: form.cliente_telefono.trim() || null,

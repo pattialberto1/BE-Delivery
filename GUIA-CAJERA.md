@@ -52,6 +52,11 @@ cobró por la caja del local, no por la del delivery. Al marcarla:
 - Lo único que genera es la **carrera del repartidor**, que se le paga igual que
   cualquier otra.
 
+**Te va a pedir con qué pagó el cliente**: bolívares, dólares o parte y parte.
+No lleva monto ni referencia —eso lo tiene la otra caja—, solo la moneda, porque
+es lo que dice de dónde se saca la plata para pagarle la carrera al repartidor.
+Sin eso no deja guardar.
+
 Lo demás se llena igual: cliente, zona y, cuando se sepa, el repartidor.
 
 ### 2. Los datos del pedido
