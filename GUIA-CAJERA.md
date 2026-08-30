@@ -53,9 +53,13 @@ cobró por la caja del local, no por la del delivery. Al marcarla:
   cualquier otra.
 
 **Te va a pedir con qué pagó el cliente**: bolívares, dólares o parte y parte.
-No lleva monto ni referencia —eso lo tiene la otra caja—, solo la moneda, porque
-es lo que dice de dónde se saca la plata para pagarle la carrera al repartidor.
-Sin eso no deja guardar.
+Es lo que dice de dónde se saca la plata para pagarle la carrera al repartidor,
+así que sin eso no deja guardar.
+
+Si fue **parte y parte**, te pide además **cuánto en bolívares y cuánto en
+dólares**, porque «parte y parte» a secas no dice cuánto sacar de cada caja. La
+app te muestra cuánto suman los dos y te avisa si no cuadra con la comanda,
+aunque igual te deja guardar: esa plata la cobró la otra caja.
 
 Lo demás se llena igual: cliente, zona y, cuando se sepa, el repartidor.
 

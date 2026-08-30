@@ -249,6 +249,33 @@ select case when moneda_facturada = 'MIXTO' then 'OK'
 from v_ordenes_detalle where numero_factura = 'F-0001';
 
 -- ---------------------------------------------------------------------------
+\echo '8j. Los montos de la mixta: solo en una facturada aparte y nunca negativos'
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  update ordenes set facturada_bs = 1000 where numero_factura = '45361';
+  raise exception 'FALLA: dejó montos de facturada en una orden cobrada por esta caja';
+exception when check_violation then
+  raise notice 'OK';
+end $$;
+
+do $$
+begin
+  update ordenes set facturada_bs = -5 where numero_factura = 'F-0001';
+  raise exception 'FALLA: aceptó un monto negativo';
+exception when check_violation then
+  raise notice 'OK';
+end $$;
+
+update ordenes
+set facturada_bs = 30000, facturada_divisa_usd = 50
+where numero_factura = 'F-0001';
+
+select case when facturada_bs = 30000 and facturada_divisa_usd = 50 then 'OK'
+  else 'FALLA: la vista no trajo el desglose de la mixta' end as resultado
+from v_ordenes_detalle where numero_factura = 'F-0001';
+
+-- ---------------------------------------------------------------------------
 \echo '9. Con el día cerrado ya nadie puede tocar las órdenes'
 -- ---------------------------------------------------------------------------
 insert into cierres (fecha_operativa, cerrado_por)

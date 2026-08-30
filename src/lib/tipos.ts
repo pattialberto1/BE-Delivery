@@ -96,6 +96,14 @@ export interface Orden {
    * paga la carrera al repartidor.
    */
   moneda_facturada: MonedaFacturada | null
+  /**
+   * El desglose de una facturada aparte cobrada parte y parte.
+   *
+   * Nulos en todo lo demás. No suman en ningún total de la caja del delivery:
+   * dicen cuánto sacar de cada caja para pagar la carrera.
+   */
+  facturada_bs: number | null
+  facturada_divisa_usd: number | null
   cliente_nombre: string
   cliente_telefono: string | null
   direccion: string | null
@@ -137,6 +145,8 @@ export interface OrdenDetalle {
   tipo: TipoOrden
   facturada_aparte: boolean
   moneda_facturada: MonedaFacturada | null
+  facturada_bs: number | null
+  facturada_divisa_usd: number | null
   cliente_nombre: string
   cliente_telefono: string | null
   direccion: string | null

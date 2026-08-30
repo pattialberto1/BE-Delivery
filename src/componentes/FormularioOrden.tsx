@@ -1,7 +1,7 @@
 import type { Banco, BorradorPago, Cuenta, Repartidor, TipoOrden, Zona } from '../lib/tipos'
 import { ETIQUETA_MONEDA_FACTURADA, ETIQUETA_TIPO, METODOS_PICKUP } from '../lib/tipos'
 import type { MonedaFacturada } from '../lib/tipos'
-import { formatearBS, formatearUSD, metodoParaCompletar, monedaDeMetodo } from '../lib/reglas'
+import { aNumero, formatearBS, formatearUSD, metodoParaCompletar, monedaDeMetodo } from '../lib/reglas'
 import { Alerta, Boton, Campo, Entrada, Seleccion, Tarjeta, AreaTexto } from './UI'
 import { FilaPago, type Choque } from './FilaPago'
 import { SelectorZona } from './SelectorZona'
@@ -48,6 +48,12 @@ export function FormularioOrden({
   facturaDuplicada,
   refFactura,
 }: Props) {
+  // Lo que suma el desglose de una mixta, para poder cotejarlo con el total de
+  // la comanda mientras se teclea.
+  const desgloseMixto =
+    (Number.isFinite(aNumero(form.facturada_divisa_usd)) ? aNumero(form.facturada_divisa_usd) : 0) +
+    (tasa > 0 && Number.isFinite(aNumero(form.facturada_bs)) ? aNumero(form.facturada_bs) / tasa : 0)
+
   /** Agrega un pago por lo que falta, con el monto y la forma ya propuestos. */
   function agregarPagoDelResto() {
     const metodo = metodoParaCompletar(pagos)
@@ -278,7 +284,15 @@ export function FormularioOrden({
                 <button
                   key={m}
                   type="button"
-                  onClick={() => setForm({ ...form, moneda_facturada: m })}
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      moneda_facturada: m,
+                      // Al salir de «parte y parte» el desglose deja de aplicar.
+                      facturada_bs: m === 'MIXTO' ? form.facturada_bs : '',
+                      facturada_divisa_usd: m === 'MIXTO' ? form.facturada_divisa_usd : '',
+                    })
+                  }
                   className={`min-h-12 flex-1 rounded-lg border-2 px-4 font-bold transition-colors ${
                     form.moneda_facturada === m
                       ? 'border-marca-600 bg-marca-50 text-marca-800'
@@ -293,6 +307,37 @@ export function FormularioOrden({
               <p className="mt-1.5 text-sm font-semibold text-red-700">{erroresPorCampo.moneda_facturada}</p>
             )}
           </div>
+
+          {/*
+            «Parte y parte» a secas no dice cuánto sacar de cada caja para
+            pagarle la carrera al repartidor, así que se piden los dos montos.
+          */}
+          {form.moneda_facturada === 'MIXTO' && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <Campo etiqueta="Pagó en bolívares (Bs)" requerido error={erroresPorCampo.facturada_bs}>
+                <Entrada
+                  value={form.facturada_bs}
+                  onChange={(e) => setForm({ ...form, facturada_bs: e.target.value })}
+                  inputMode="decimal"
+                  placeholder="0,00"
+                />
+              </Campo>
+              <Campo etiqueta="Pagó en dólares ($)" requerido error={erroresPorCampo.facturada_divisa_usd}>
+                <Entrada
+                  value={form.facturada_divisa_usd}
+                  onChange={(e) => setForm({ ...form, facturada_divisa_usd: e.target.value })}
+                  inputMode="decimal"
+                  placeholder="0,00"
+                />
+              </Campo>
+              {desgloseMixto > 0 && (
+                <p className="text-sm text-slate-600 sm:col-span-2">
+                  El desglose suma <strong>{formatearUSD(desgloseMixto)}</strong>
+                  {tasa > 0 && ` (${formatearBS(desgloseMixto * tasa)})`}.
+                </p>
+              )}
+            </div>
+          )}
         </Tarjeta>
       ) : (
       <Tarjeta

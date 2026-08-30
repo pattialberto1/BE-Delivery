@@ -93,6 +93,8 @@ function vistaOrdenesDetalle(): OrdenDetalle[] {
         tipo: o.tipo,
         facturada_aparte: o.facturada_aparte ?? false,
         moneda_facturada: o.moneda_facturada ?? null,
+        facturada_bs: o.facturada_bs ?? null,
+        facturada_divisa_usd: o.facturada_divisa_usd ?? null,
         cliente_nombre: o.cliente_nombre,
         cliente_telefono: o.cliente_telefono,
         direccion: o.direccion,

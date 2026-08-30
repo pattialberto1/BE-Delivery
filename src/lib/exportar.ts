@@ -11,9 +11,12 @@ import {
   type TotalesCierre,
 } from './tipos'
 import {
+  desgloseFacturada,
   detectarSaltosDeFactura,
   etiquetaDeCobro,
+  formatearBS,
   formatearFecha,
+  formatearUSD,
   monedaDeCobro,
   TOLERANCIA_DESCUADRE_USD,
 } from './reglas'
@@ -126,6 +129,11 @@ function encabezados(textos: string[]): Row {
       ? 'right'
       : 'left',
   })) as Row
+}
+
+/** La primera letra en mayúscula: el desglose se arma en minúsculas. */
+function capitalizar(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
 function vacias(cuantas: number): Row {
@@ -289,7 +297,7 @@ export async function exportarCierre(
         // Con qué moneda cobró la otra caja: es lo que decide de dónde sale la
         // plata para pagarle la carrera al repartidor.
         orden.moneda_facturada
-          ? texto(ETIQUETA_MONEDA_FACTURADA[orden.moneda_facturada])
+          ? texto(capitalizar(desgloseFacturada(orden)))
           : { value: 'SIN ESPECIFICAR', type: String, textColor: ROJO },
         dinero(orden.pago_repartidor_usd),
       ])
@@ -313,8 +321,14 @@ export async function exportarCierre(
       filas.push([
         texto(`  Cobradas en ${ETIQUETA_MONEDA_FACTURADA[moneda].toLowerCase()}`),
         entero(suyas.length),
-        null,
-        null,
+        // En la mixta, lo que la otra caja recibió de cada moneda: es lo que
+        // dice de dónde sacar la plata de estas carreras.
+        moneda === 'MIXTO'
+          ? texto(formatearBS(suyas.reduce((s, o) => s + (Number(o.facturada_bs) || 0), 0)))
+          : null,
+        moneda === 'MIXTO'
+          ? texto(formatearUSD(suyas.reduce((s, o) => s + (Number(o.facturada_divisa_usd) || 0), 0)))
+          : null,
         dinero(suyas.reduce((suma, o) => suma + Number(o.pago_repartidor_usd), 0)),
       ])
     }

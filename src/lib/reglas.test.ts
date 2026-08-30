@@ -8,6 +8,7 @@ import {
   normalizarTexto,
   referenciaEsConfiable,
   fechaOperativa,
+  desgloseFacturada,
   etiquetaDeCobro,
   metodoParaCompletar,
   monedaDeCobro,
@@ -45,6 +46,8 @@ function orden(parcial: Partial<DatosOrdenAValidar> = {}): DatosOrdenAValidar {
     tipo: 'delivery',
     facturada_aparte: false,
     moneda_facturada: '',
+    facturada_bs: '',
+    facturada_divisa_usd: '',
     numero_factura: '1001',
     cliente_nombre: 'María',
     direccion: 'Av. Urdaneta, edificio X',
@@ -486,10 +489,68 @@ describe('comandas facturadas aparte', () => {
     expect(problemas.some((p) => p.campo === 'moneda_facturada')).toBe(false)
   })
 
+  it('una mixta sin desglose no se puede guardar', () => {
+    // «Parte y parte» a secas no dice cuánto sacar de cada caja.
+    const problemas = validarOrden(orden({ facturada_aparte: true, moneda_facturada: 'MIXTO', pagos: [] }))
+    const campos = problemas.filter((p) => p.nivel === 'error').map((p) => p.campo)
+    expect(campos).toContain('facturada_bs')
+    expect(campos).toContain('facturada_divisa_usd')
+  })
+
+  it('con los dos montos sí se guarda', () => {
+    const problemas = validarOrden(
+      orden({
+        facturada_aparte: true,
+        moneda_facturada: 'MIXTO',
+        // 10 + 2 de delivery = 12; 320/40 = 8, más 4 en divisa, son 12.
+        facturada_bs: '320',
+        facturada_divisa_usd: '4',
+        pagos: [],
+      }),
+    )
+    expect(problemas.filter((p) => p.nivel === 'error')).toEqual([])
+  })
+
+  it('avisa —sin trancar— si el desglose no cuadra con la comanda', () => {
+    // Esa plata no entra en esta caja, así que es un aviso: la otra caja pudo
+    // haber cobrado algo distinto y no somos nosotros quienes lo corregimos.
+    const problemas = validarOrden(
+      orden({
+        facturada_aparte: true,
+        moneda_facturada: 'MIXTO',
+        facturada_bs: '320',
+        facturada_divisa_usd: '40',
+        pagos: [],
+      }),
+    )
+    expect(problemas.filter((p) => p.nivel === 'error')).toEqual([])
+    expect(problemas.some((p) => p.nivel === 'aviso' && p.campo === 'facturada_bs')).toBe(true)
+  })
+
+  it('a las que no son mixtas no les pide desglose', () => {
+    const problemas = validarOrden(orden({ facturada_aparte: true, moneda_facturada: 'USD', pagos: [] }))
+    expect(problemas.some((p) => p.campo === 'facturada_bs')).toBe(false)
+  })
+
+  it('el desglose de una mixta sale con los dos montos', () => {
+    expect(
+      desgloseFacturada({ moneda_facturada: 'MIXTO', facturada_bs: 45862, facturada_divisa_usd: 29 }),
+    ).toContain('45.862')
+    expect(
+      desgloseFacturada({ moneda_facturada: 'MIXTO', facturada_bs: 45862, facturada_divisa_usd: 29 }),
+    ).toContain('29')
+  })
+
+  it('una mixta sin montos lo dice en vez de callarlo', () => {
+    expect(desgloseFacturada({ moneda_facturada: 'MIXTO' })).toBe('parte y parte (sin desglosar)')
+  })
+
   it('el reporte dice que se facturó aparte y con qué moneda', () => {
     const base = { pagado_divisa_usd: 0, pagado_bs: 0, facturada_aparte: true }
     expect(etiquetaDeCobro({ ...base, moneda_facturada: 'BS' })).toBe('Facturada aparte · bolívares')
     expect(etiquetaDeCobro({ ...base, moneda_facturada: 'USD' })).toBe('Facturada aparte · dólares')
+    // Sin montos: en la liquidación lo que importa es la moneda. El desglose
+    // completo va en el cierre, que es donde se cuadra la caja.
     expect(etiquetaDeCobro({ ...base, moneda_facturada: 'MIXTO' })).toBe('Facturada aparte · parte y parte')
     expect(etiquetaDeCobro({ ...base, moneda_facturada: null })).toBe('Facturada aparte · sin especificar')
   })

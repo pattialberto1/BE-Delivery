@@ -382,7 +382,20 @@ export function Cierre() {
                     </td>
                     <td className="py-2 pr-3">
                       {o.moneda_facturada ? (
-                        ETIQUETA_MONEDA_FACTURADA[o.moneda_facturada]
+                        <>
+                          {ETIQUETA_MONEDA_FACTURADA[o.moneda_facturada]}
+                          {o.moneda_facturada === 'MIXTO' && (
+                            <div className="text-xs text-slate-500">
+                              {Number(o.facturada_bs) > 0 || Number(o.facturada_divisa_usd) > 0 ? (
+                                `${formatearBS(Number(o.facturada_bs) || 0)} + ${formatearUSD(
+                                  Number(o.facturada_divisa_usd) || 0,
+                                )}`
+                              ) : (
+                                <span className="font-semibold text-red-700">sin desglosar</span>
+                              )}
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <Insignia tono="alerta">Sin especificar</Insignia>
                       )}
@@ -421,7 +434,13 @@ export function Cierre() {
                   key={m}
                   etiqueta={`Cobradas en ${ETIQUETA_MONEDA_FACTURADA[m].toLowerCase()}`}
                   valor={formatearUSD(suyas.reduce((s, o) => s + Number(o.pago_repartidor_usd), 0))}
-                  detalle={`${suyas.length} carrera${suyas.length === 1 ? '' : 's'} por pagar`}
+                  detalle={
+                    m === 'MIXTO'
+                      ? `${suyas.length} carrera${suyas.length === 1 ? '' : 's'} · cobraron ${formatearBS(
+                          suyas.reduce((s, o) => s + (Number(o.facturada_bs) || 0), 0),
+                        )} + ${formatearUSD(suyas.reduce((s, o) => s + (Number(o.facturada_divisa_usd) || 0), 0))}`
+                      : `${suyas.length} carrera${suyas.length === 1 ? '' : 's'} por pagar`
+                  }
                 />
               )
             })}

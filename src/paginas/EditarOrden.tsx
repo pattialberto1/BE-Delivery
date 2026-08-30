@@ -67,6 +67,8 @@ export function EditarOrden() {
       tipo: o.tipo,
       facturada_aparte: o.facturada_aparte,
       moneda_facturada: o.moneda_facturada ?? '',
+      facturada_bs: o.facturada_bs == null ? '' : String(o.facturada_bs),
+      facturada_divisa_usd: o.facturada_divisa_usd == null ? '' : String(o.facturada_divisa_usd),
       numero_factura: o.numero_factura,
       cliente_nombre: o.cliente_nombre,
       cliente_telefono: o.cliente_telefono ?? '',
@@ -105,6 +107,8 @@ export function EditarOrden() {
       tipo: form.tipo,
       facturada_aparte: form.facturada_aparte,
       moneda_facturada: form.moneda_facturada,
+      facturada_bs: form.facturada_bs,
+      facturada_divisa_usd: form.facturada_divisa_usd,
       numero_factura: form.numero_factura,
       cliente_nombre: form.cliente_nombre,
       direccion: form.direccion,
@@ -141,6 +145,7 @@ export function EditarOrden() {
 
     setGuardando(true)
     const esPickup = form.tipo === 'pickup'
+    const mixtaFacturada = form.facturada_aparte && form.moneda_facturada === 'MIXTO'
 
     try {
       // Las capturas nuevas primero, para no dejar la orden apuntando a nada.
@@ -156,6 +161,10 @@ export function EditarOrden() {
           tipo: form.tipo,
           facturada_aparte: form.facturada_aparte,
           moneda_facturada: form.facturada_aparte ? form.moneda_facturada || null : null,
+          // El desglose solo tiene sentido en una mixta; en las demás la moneda
+          // ya lo dice todo y guardarlo sería un dato que puede contradecirla.
+          facturada_bs: mixtaFacturada ? aNumero(form.facturada_bs) : null,
+          facturada_divisa_usd: mixtaFacturada ? aNumero(form.facturada_divisa_usd) : null,
           numero_factura: form.numero_factura.trim(),
           cliente_nombre: form.cliente_nombre.trim(),
           cliente_telefono: form.cliente_telefono.trim() || null,

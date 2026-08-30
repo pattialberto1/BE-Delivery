@@ -173,9 +173,33 @@ export function etiquetaDeCobro(orden: {
 }): string {
   const base = ETIQUETA_MONEDA_COBRO[monedaDeCobro(orden)]
   if (!orden.facturada_aparte) return base
+  // Sin los montos: en la liquidación lo que decide es la moneda, y el desglose
+  // completo no cabría en la columna. Los montos van en el cierre, que es donde
+  // se cuadra la caja.
   return orden.moneda_facturada
     ? `${base} · ${ETIQUETA_MONEDA_FACTURADA[orden.moneda_facturada].toLowerCase()}`
     : `${base} · sin especificar`
+}
+
+/**
+ * Cómo pagó una comanda facturada aparte, con montos si fue parte y parte.
+ *
+ * Sin los montos, «parte y parte» no dice cuánto sacar de cada caja, que es
+ * justo la pregunta que se hace al pagarle la carrera al repartidor.
+ */
+export function desgloseFacturada(orden: {
+  moneda_facturada?: MonedaFacturada | null
+  facturada_bs?: number | null
+  facturada_divisa_usd?: number | null
+}): string {
+  if (!orden.moneda_facturada) return 'sin especificar'
+  const etiqueta = ETIQUETA_MONEDA_FACTURADA[orden.moneda_facturada].toLowerCase()
+  if (orden.moneda_facturada !== 'MIXTO') return etiqueta
+
+  const bolivares = Number(orden.facturada_bs) || 0
+  const divisa = Number(orden.facturada_divisa_usd) || 0
+  if (bolivares <= 0 && divisa <= 0) return `${etiqueta} (sin desglosar)`
+  return `${etiqueta}: ${formatearBS(bolivares)} + ${formatearUSD(divisa)}`
 }
 
 export interface Problema {
@@ -191,6 +215,9 @@ export interface DatosOrdenAValidar {
   facturada_aparte: boolean
   /** Con qué moneda pagó el cliente esa comanda. Vacío mientras no se elija. */
   moneda_facturada: MonedaFacturada | ''
+  /** El desglose de una facturada cobrada parte y parte, tal como se teclea. */
+  facturada_bs: string
+  facturada_divisa_usd: string
   numero_factura: string
   cliente_nombre: string
   direccion: string
@@ -407,6 +434,44 @@ export function validarOrden(datos: DatosOrdenAValidar): Problema[] {
       mensaje: 'Di con qué pagó el cliente: bolívares, dólares o parte y parte.',
       nivel: 'error',
     })
+  }
+
+  // Y si fue parte y parte, cuánto de cada una: «mixto» a secas no dice cuánto
+  // sacar de cada caja para pagarle la carrera al repartidor.
+  if (datos.facturada_aparte && datos.moneda_facturada === 'MIXTO') {
+    const bolivares = aNumero(datos.facturada_bs)
+    const divisa = aNumero(datos.facturada_divisa_usd)
+
+    if (!(bolivares > 0)) {
+      problemas.push({
+        campo: 'facturada_bs',
+        mensaje: 'Falta cuánto pagó en bolívares.',
+        nivel: 'error',
+      })
+    }
+    if (!(divisa > 0)) {
+      problemas.push({
+        campo: 'facturada_divisa_usd',
+        mensaje: 'Falta cuánto pagó en dólares.',
+        nivel: 'error',
+      })
+    }
+
+    // Que el desglose cuadre con el total es un aviso, no un error: esa plata
+    // no entra en esta caja y a veces la otra cobra algo distinto (un
+    // descuento, un redondeo). Se avisa para que se mire, no para trancar.
+    if (bolivares > 0 && divisa > 0 && datos.tasa_bs_por_usd > 0) {
+      const resumen = calcularResumen(datos)
+      const declarado = divisa + bolivares / datos.tasa_bs_por_usd
+      const diferencia = declarado - resumen.total
+      if (Math.abs(diferencia) > TOLERANCIA_DESCUADRE_USD) {
+        problemas.push({
+          campo: 'facturada_bs',
+          mensaje: `El desglose suma ${formatearUSD(declarado)} y la comanda es de ${formatearUSD(resumen.total)}. Revísalo.`,
+          nivel: 'aviso',
+        })
+      }
+    }
   }
 
   datos.pagos.forEach((pago, indice) => {

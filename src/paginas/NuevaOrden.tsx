@@ -112,6 +112,8 @@ export function NuevaOrden() {
       tipo: form.tipo,
       facturada_aparte: form.facturada_aparte,
       moneda_facturada: form.moneda_facturada,
+      facturada_bs: form.facturada_bs,
+      facturada_divisa_usd: form.facturada_divisa_usd,
       numero_factura: form.numero_factura,
       cliente_nombre: form.cliente_nombre,
       direccion: form.direccion,
@@ -287,6 +289,7 @@ export function NuevaOrden() {
 
     setGuardando(true)
     const esPickup = form.tipo === 'pickup'
+    const mixtaFacturada = form.facturada_aparte && form.moneda_facturada === 'MIXTO'
     let ordenCreada: string | null = null
 
     try {
@@ -307,6 +310,10 @@ export function NuevaOrden() {
           tipo: form.tipo,
           facturada_aparte: form.facturada_aparte,
           moneda_facturada: form.facturada_aparte ? form.moneda_facturada || null : null,
+          // El desglose solo tiene sentido en una mixta; en las demás la moneda
+          // ya lo dice todo y guardarlo sería un dato que puede contradecirla.
+          facturada_bs: mixtaFacturada ? aNumero(form.facturada_bs) : null,
+          facturada_divisa_usd: mixtaFacturada ? aNumero(form.facturada_divisa_usd) : null,
           zona_id: esPickup ? null : zonaElegida!.id,
           tarifa_cliente_usd: esPickup ? 0 : zonaElegida!.tarifa_cliente_usd,
           pago_repartidor_usd: esPickup ? 0 : zonaElegida!.pago_repartidor_usd,

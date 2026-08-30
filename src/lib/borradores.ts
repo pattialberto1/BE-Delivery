@@ -16,6 +16,9 @@ export interface DatosFormulario {
   facturada_aparte: boolean
   /** Con qué moneda pagó, solo si se facturó aparte. */
   moneda_facturada: MonedaFacturada | ''
+  /** El desglose, solo si esa comanda se pagó parte y parte. */
+  facturada_bs: string
+  facturada_divisa_usd: string
   numero_factura: string
   cliente_nombre: string
   cliente_telefono: string
@@ -31,6 +34,8 @@ export function formularioVacio(): DatosFormulario {
     tipo: 'delivery',
     facturada_aparte: false,
     moneda_facturada: '',
+    facturada_bs: '',
+    facturada_divisa_usd: '',
     numero_factura: '',
     cliente_nombre: '',
     cliente_telefono: '',

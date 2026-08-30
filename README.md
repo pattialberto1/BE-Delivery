@@ -64,9 +64,10 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
   fiscal se cobra por la caja del local. Se carga marcada, **no suma en ningún
   total del cierre** y sale en su propio apartado; lo único que genera es la
   carrera del repartidor que la llevó, que sí se le paga. Se pide además **con
-  qué moneda cobró la otra caja** —bolívares, dólares o parte y parte—: no lleva
-  monto ni referencia, solo eso, porque es lo que dice de dónde sale la plata
-  para esa carrera.
+  qué moneda cobró la otra caja** —bolívares, dólares o parte y parte—, porque
+  es lo que dice de dónde sale la plata para esa carrera. Si fue **parte y
+  parte** se piden los dos montos: cuánto en bolívares y cuánto en dólares, que
+  es lo que hace falta para saber cuánto sacar de cada caja.
 - **Liquidación de repartidores**: cuántas carreras hizo cada uno y cuánto se le
   debe, por día o por rango de fechas. Lo que se le debe sale siempre en
   dólares —así está tarifada cada zona— pero separado según con qué plata entró
@@ -157,6 +158,8 @@ como administrador activo, porque no hay todavía nadie que pueda darle acceso.
      cada factura
    - `0012_moneda_de_la_facturada_aparte.sql` — con qué moneda cobró la caja del
      local esas comandas
+   - `0013_montos_de_la_facturada_mixta.sql` — cuánto cobró en cada moneda
+     cuando fue parte y parte
 
 > En **Authentication → Providers → Email**, desactivar **"Confirm email"**. Los
 > usuarios sin correo real usan direcciones internas que no reciben nada, así
