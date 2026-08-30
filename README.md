@@ -161,6 +161,14 @@ como administrador activo, porque no hay todavía nadie que pueda darle acceso.
    - `0013_montos_de_la_facturada_mixta.sql` — cuánto cobró en cada moneda
      cuando fue parte y parte
 
+> **Si la base viene de atrás y falta correr varias migraciones**, en vez de
+> ejecutarlas una por una se puede correr `supabase/utilidades/poner_al_dia.sql`:
+> hace lo mismo que las migraciones 0010 a 0013 juntas, no importa en cuál se
+> haya quedado la base, y se puede ejecutar las veces que haga falta. Saltarse
+> una migración da un error que no dice cuál falta —`column o.moneda_facturada
+> does not exist` no señala a la 0012, que es la que agrega esa columna—, y ese
+> archivo evita el problema entero.
+
 > En **Authentication → Providers → Email**, desactivar **"Confirm email"**. Los
 > usuarios sin correo real usan direcciones internas que no reciben nada, así
 > que con la confirmación activada no podrían entrar nunca.
