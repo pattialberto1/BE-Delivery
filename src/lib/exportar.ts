@@ -303,6 +303,9 @@ export async function exportarCierre(
       ])
     }
 
+    const cobradoPorElLocal = facturadas.reduce((suma, o) => suma + Number(o.total_usd), 0)
+    const pedidoPorElLocal = facturadas.reduce((suma, o) => suma + Number(o.monto_pedido_usd), 0)
+
     filas.push([
       texto('Solo esto se paga', true),
       texto(`${facturadas.length} comanda${facturadas.length === 1 ? '' : 's'}`),
@@ -312,6 +315,18 @@ export async function exportarCierre(
         facturadas.reduce((suma, o) => suma + Number(o.pago_repartidor_usd), 0),
         true,
       ),
+    ])
+
+    // Lo que cobró la otra caja. No suma acá, pero es exactamente la cifra que
+    // falta cuando se compara este cierre contra el del local y no cuadran, así
+    // que dejarla fuera del reporte obliga a sacarla a mano.
+    filas.push([
+      {
+        value: `La caja del local cobró ${cobradoPorElLocal.toFixed(2)} $ por estas comandas (${pedidoPorElLocal.toFixed(2)} de pedido + ${(cobradoPorElLocal - pedidoPorElLocal).toFixed(2)} de delivery). Esa plata no está en esta caja: si este cierre no cuadra contra el del local, esa es la diferencia.`,
+        type: String,
+        columnSpan: 5,
+        textColor: '#92400E',
+      },
     ])
 
     // Y partido por moneda, que es como hay que sacar la plata para pagarlas.

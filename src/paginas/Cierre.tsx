@@ -358,6 +358,21 @@ export function Cierre() {
             sí hay que pagarle al repartidor que la llevó.
           </Alerta>
 
+          {totales.facturadas_aparte && (
+            <p className="mt-3 rounded-lg bg-slate-100 p-3 text-sm text-slate-700">
+              La caja del local cobró{' '}
+              <strong>
+                {formatearUSD(
+                  totales.facturadas_aparte.ventas_usd + totales.facturadas_aparte.delivery_cobrado_usd,
+                )}
+              </strong>{' '}
+              por estas comandas ({formatearUSD(totales.facturadas_aparte.ventas_usd)} de pedido +{' '}
+              {formatearUSD(totales.facturadas_aparte.delivery_cobrado_usd)} de delivery). Esa plata{' '}
+              <strong>no está en esta caja</strong>: si comparas este cierre contra el del local, esa es la
+              diferencia.
+            </p>
+          )}
+
           <ContenedorTabla className="mt-3">
             <table className="w-full min-w-[38rem] text-sm">
               <thead>
@@ -414,7 +429,12 @@ export function Cierre() {
                   <td className="py-2 pr-3" colSpan={5}>
                     Solo esto se paga
                   </td>
-                  <td className="py-2 pr-3 text-right text-slate-400">—</td>
+                  {/* El total de lo que cobró la otra caja va acá aunque no
+                      sume: es exactamente la cifra que falta cuando alguien
+                      compara esta caja contra la del local y no cuadran. */}
+                  <td className="py-2 pr-3 text-right tabular-nums text-slate-500">
+                    {formatearUSD(totales.facturadas_aparte?.ventas_usd ?? 0)}
+                  </td>
                   <td className="py-2 text-right tabular-nums">
                     {formatearUSD(totales.facturadas_aparte?.delivery_pagado_usd ?? 0)}
                   </td>
