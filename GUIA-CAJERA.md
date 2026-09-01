@@ -18,7 +18,16 @@ bolívares por dólar). Se carga una sola vez y sirve para toda la jornada.
 
 Todo se hace en la pestaña **Nueva orden**, de arriba hacia abajo.
 
-### 0. Revisa la jornada
+### 0. Por dónde vas
+
+Arriba, al lado de la fecha, dice **«Vas por la comanda N° X»**. Es la columna
+**N.** de la hoja: el número que le toca a la que estás por cargar, y entre
+paréntesis cuántas llevas. Sube sola cada vez que guardas una.
+
+Ese número no es la factura: es solo para guiarte. En **Órdenes del día** cada
+fila lleva el suyo en la primera columna, y también sale en el Excel.
+
+### 0.1. Revisa la jornada
 
 Arriba del formulario dice en qué **jornada** estás cargando. Normalmente es la
 de hoy y no hay que tocar nada.

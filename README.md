@@ -93,7 +93,7 @@ La hoja que hoy se llena a mano tiene ocho columnas. Así queda cada una:
 
 | Columna del papel | En la app |
 |---|---|
-| **N.** | Ya no hace falta: la app numera sola |
+| **N.** | La app numera sola: al cargar dice «vas por la comanda N° X», y la lista del día y el Excel llevan la columna |
 | **N. FACTURA** | Se teclea. La app avisa si está repetida o si falta alguna en el correlativo |
 | **TOTAL** | Sale solo: pedido + delivery |
 | **DIVISA** | Un pago con forma «Efectivo $» o «Zelle» |

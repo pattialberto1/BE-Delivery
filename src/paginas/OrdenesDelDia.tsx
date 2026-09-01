@@ -35,6 +35,10 @@ export function OrdenesDelDia() {
 
   const saltos = useMemo(() => detectarSaltosDeFactura(ordenes.map((o) => o.numero_factura)), [ordenes])
 
+  // El número de comanda del día: la columna «N.» de la hoja de papel. Se saca
+  // de la lista completa y no de la filtrada, para que filtrar no renumere.
+  const posicion = useMemo(() => new Map(ordenes.map((o, i) => [o.id, i + 1])), [ordenes])
+
   const visibles = useMemo(() => {
     const texto = busqueda.trim().toLowerCase()
     return ordenes.filter((o) => {
@@ -189,6 +193,7 @@ export function OrdenesDelDia() {
                       }
                     />
                   </th>
+                  <th className="py-2 pr-2 text-right">N°</th>
                   <th className="py-2 pr-3">Factura</th>
                   <th className="py-2 pr-3">Cliente</th>
                   <th className="py-2 pr-3">Zona</th>
@@ -216,6 +221,9 @@ export function OrdenesDelDia() {
                             onChange={() => alternar(o.id)}
                           />
                         )}
+                      </td>
+                      <td className="py-2 pr-2 text-right align-top text-sm font-semibold tabular-nums text-slate-400">
+                        {posicion.get(o.id)}
                       </td>
                       <td className="py-2 pr-3 font-bold tabular-nums">
                         {puedeEscribir ? (

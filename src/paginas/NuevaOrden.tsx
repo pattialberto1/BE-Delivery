@@ -46,6 +46,25 @@ export function NuevaOrden() {
   // teclear, no después de llenar la comanda entera.
   const [cerrada, setCerrada] = useState(false)
 
+  /**
+   * Cuántas comandas van cargadas en esta jornada.
+   *
+   * Es la columna «N.» de la hoja de papel: la cajera se guía por ahí para saber
+   * por dónde va. Se cuenta en vez de guardarse porque no identifica a nada —si
+   * se anula una, las demás corren— y siempre tiene que decir lo mismo que la
+   * lista del día.
+   */
+  const [cargadas, setCargadas] = useState<number | null>(null)
+
+  const contarCargadas = useCallback(async () => {
+    const { data } = await supabase.from('v_ordenes_detalle').select('id').eq('fecha_operativa', fecha)
+    setCargadas(data?.length ?? 0)
+  }, [fecha])
+
+  useEffect(() => {
+    void contarCargadas()
+  }, [contarCargadas])
+
   const [form, setForm] = useState(formularioVacio)
   const [pagos, setPagos] = useState<BorradorPago[]>(() => [pagoVacio()])
   const [tocado, setTocado] = useState(false)
@@ -355,6 +374,7 @@ export function NuevaOrden() {
         throw errorPagos
       }
 
+      await contarCargadas()
       setExito(
         esHoy
           ? `Factura ${form.numero_factura.trim()} guardada.`
@@ -394,6 +414,20 @@ export function NuevaOrden() {
           className="min-h-10 w-auto text-sm"
         />
       </label>
+
+      {/* Por dónde va la cajera. Va acá arriba, a la vista, porque es lo que
+          reemplaza a ir contando renglones en la hoja. */}
+      {cargadas !== null && (
+        <span className="flex items-baseline gap-2 rounded-lg bg-marca-50 px-3 py-1.5">
+          <span className="text-sm font-semibold text-marca-800">Vas por la comanda</span>
+          <span className="text-2xl font-black tabular-nums text-marca-700">N° {cargadas + 1}</span>
+          {cargadas > 0 && (
+            <span className="text-sm text-marca-800">
+              ({cargadas} cargada{cargadas === 1 ? '' : 's'})
+            </span>
+          )}
+        </span>
+      )}
       {esHoy ? (
         <span className="text-sm text-slate-500">
           Si ayer quedó una comanda sin anotar, cambia la fecha y cárgala en su día.

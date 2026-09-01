@@ -409,6 +409,7 @@ export async function exportarCierre(
 // --- Detalle de órdenes (hoja compartida) -----------------------------------
 
 const ANCHOS_DETALLE = [
+  { width: 5 },
   { width: 11 },
   { width: 16 },
   { width: 24 },
@@ -428,6 +429,7 @@ const ANCHOS_DETALLE = [
 function hojaDetalle(ordenes: OrdenDetalle[]): Row[] {
   const filas: Row[] = [
     encabezados([
+      'N°',
       'Factura',
       'Tipo',
       'Cliente',
@@ -445,9 +447,11 @@ function hojaDetalle(ordenes: OrdenDetalle[]): Row[] {
     ]),
   ]
 
-  for (const orden of ordenes) {
+  ordenes.forEach((orden, i) => {
     const descuadrada = Math.abs(orden.diferencia_usd) > TOLERANCIA_DESCUADRE_USD
     filas.push([
+      // El número de comanda del día, como la columna «N.» del papel.
+      entero(i + 1),
       texto(orden.numero_factura),
       // Se marca en la columna del tipo para que quien filtre esta hoja sepa que
       // esa fila no está sumada en los totales de la primera.
@@ -482,7 +486,7 @@ function hojaDetalle(ordenes: OrdenDetalle[]): Row[] {
       // científica, que es justo el dato que hay que poder buscar y cotejar.
       texto(orden.referencias ?? ''),
     ])
-  }
+  })
 
   return filas
 }
