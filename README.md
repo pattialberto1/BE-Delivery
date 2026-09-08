@@ -78,14 +78,17 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
     forma de pago y por zona, y una lista de lo que quedó por revisar. El
     detalle de las órdenes va en su propia hoja, y los pagos en otra: un renglón
     por transacción con **su número de referencia**, la cuenta que la recibió y
-    el banco del cliente, que es lo que se va tachando contra el banco. Las
-    facturadas aparte van en su propia sección, fuera de todos los totales.
+    el banco del cliente, que es lo que se va tachando contra el banco. El
+    desglose por moneda dice cuánto entró en bolívares y cuánto en dólares en
+    cada grupo, incluidas las carreras cobradas mixto. Las facturadas aparte van
+    en su propia sección, fuera de todos los totales.
   - **Liquidación** — a quién pagarle cuánto: agrupada por repartidor, con sus
     carreras listadas debajo y el subtotal de cada uno, más una hoja de resumen
     de una línea por persona con el monto en dólares partido por categoría: lo
     que corresponde a carreras cobradas en dólares, lo de las cobradas en
     bolívares, lo de las mixtas, lo de las facturadas aparte, y el total. Cada
-    carrera va con su referencia al lado del número de factura.
+    carrera va con su referencia al lado del número de factura, y la cobrada
+    mixto dice cuánto entró de cada moneda: «Mixto: Bs 15.287,00 + $10,00».
 
 ## De la hoja de papel a la app
 

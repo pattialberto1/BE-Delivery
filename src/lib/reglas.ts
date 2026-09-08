@@ -170,15 +170,23 @@ export function etiquetaDeCobro(orden: {
   pagado_bs: number
   facturada_aparte?: boolean
   moneda_facturada?: MonedaFacturada | null
+  facturada_bs?: number | null
+  facturada_divisa_usd?: number | null
 }): string {
-  const base = ETIQUETA_MONEDA_COBRO[monedaDeCobro(orden)]
-  if (!orden.facturada_aparte) return base
-  // Sin los montos: en la liquidación lo que decide es la moneda, y el desglose
-  // completo no cabría en la columna. Los montos van en el cierre, que es donde
-  // se cuadra la caja.
-  return orden.moneda_facturada
-    ? `${base} · ${ETIQUETA_MONEDA_FACTURADA[orden.moneda_facturada].toLowerCase()}`
-    : `${base} · sin especificar`
+  const moneda = monedaDeCobro(orden)
+  const base = ETIQUETA_MONEDA_COBRO[moneda]
+
+  if (orden.facturada_aparte) {
+    return orden.moneda_facturada ? `${base} · ${desgloseFacturada(orden)}` : `${base} · sin especificar`
+  }
+
+  // La mixta se lleva sus dos montos: decir «mixto» a secas no dice cuánto entró
+  // en cada moneda, que es lo que decide con qué se le paga la carrera.
+  if (moneda === 'MIXTO') {
+    return `${base}: ${formatearBS(Number(orden.pagado_bs))} + ${formatearUSD(Number(orden.pagado_divisa_usd))}`
+  }
+
+  return base
 }
 
 /**

@@ -247,19 +247,24 @@ export async function exportarCierre(
     const conteo = carrerasPorMoneda(entregas)
     filas.push(
       FILA_VACIA,
-      seccion('Carreras según la moneda con que se cobraron', 4),
-      encabezados(['Cobrado en', 'Carreras', 'Delivery $']),
+      seccion('Carreras según la moneda con que se cobraron', 5),
+      encabezados(['Cobrado en', 'Carreras', 'Entró en Bs', 'Entró en $', 'Delivery $']),
       ...(['USD', 'BS', 'MIXTO', 'SIN_PAGO'] as const)
         .filter((clave) => conteo[clave] > 0)
-        .map((clave) => [
-          texto(ETIQUETA_MONEDA_COBRO[clave]),
-          entero(conteo[clave]),
-          dinero(
-            entregas
-              .filter((o) => monedaDeCobro(o) === clave)
-              .reduce((suma, o) => suma + Number(o.tarifa_cliente_usd), 0),
-          ),
-        ]),
+        .map((clave) => {
+          const suyas = entregas.filter((o) => monedaDeCobro(o) === clave)
+          const bolivares = suyas.reduce((suma, o) => suma + Number(o.pagado_bs), 0)
+          const divisa = suyas.reduce((suma, o) => suma + Number(o.pagado_divisa_usd), 0)
+          return [
+            texto(ETIQUETA_MONEDA_COBRO[clave]),
+            entero(suyas.length),
+            // Lo que entró tal cual, sin convertir: en una mixta es lo único que
+            // dice cuánto salió de cada caja.
+            bolivares > 0 ? dinero(bolivares) : texto('—'),
+            divisa > 0 ? dinero(divisa) : texto('—'),
+            dinero(suyas.reduce((suma, o) => suma + Number(o.tarifa_cliente_usd), 0)),
+          ]
+        }),
     )
   }
 
@@ -593,7 +598,8 @@ function hojaPagos(ordenes: OrdenDetalle[], pagos: PagoDelCierre[], tasa: number
 
 // --- Liquidación de repartidores --------------------------------------------
 
-const ANCHOS_LIQUIDACION = [{ width: 14 }, { width: 12 }, { width: 24 }, { width: 22 }, { width: 20 }, { width: 14 }]
+// «Cobrado en» va ancha porque en una mixta lleva los dos montos.
+const ANCHOS_LIQUIDACION = [{ width: 14 }, { width: 12 }, { width: 22 }, { width: 34 }, { width: 20 }, { width: 14 }]
 
 /**
  * Liquidación: a quién hay que pagarle cuánto.

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useSesion } from '../contexto/Sesion'
 import { useOrdenesRango } from '../hooks/useOrdenes'
-import { formatearFecha, formatearUSD } from '../lib/reglas'
+import { formatearBS, formatearFecha, formatearUSD, monedaDeCobro } from '../lib/reglas'
 import {
   carrerasPorMoneda,
   consolidarLiquidacion,
@@ -85,6 +85,16 @@ export function Liquidacion() {
   // cargado solo ocupan columna si existen; si no, serían una columna de rayas.
   const mixtas = totalMonedas.MIXTO + totalMonedas.SIN_PAGO
   const pagarMixtas = totalPorMoneda.MIXTO + totalPorMoneda.SIN_PAGO
+
+  // Cuánto entró de cada moneda en las mixtas: «mixto» a secas no dice de qué
+  // caja salió cada parte.
+  const detalleMixtas = useMemo(() => {
+    const suyas = entregas.filter((o) => monedaDeCobro(o) === 'MIXTO')
+    if (suyas.length === 0) return `${mixtas} carrera${mixtas === 1 ? '' : 's'} sin pago cargado`
+    const bolivares = suyas.reduce((s, o) => s + Number(o.pagado_bs), 0)
+    const divisa = suyas.reduce((s, o) => s + Number(o.pagado_divisa_usd), 0)
+    return `Entraron ${formatearBS(bolivares)} + ${formatearUSD(divisa)}`
+  }, [entregas, mixtas])
   // Las facturadas por la caja del local llevan columna propia: su carrera se
   // paga igual, pero con plata que no está en la caja del delivery.
   const facturadas = totalMonedas.FACTURADA
@@ -161,9 +171,7 @@ export function Liquidacion() {
                 <Dato
                   etiqueta="De carreras mixtas"
                   valor={formatearUSD(pagarMixtas)}
-                  detalle={
-                    mixtas === 1 ? '1 carrera pagada de dos formas' : `${mixtas} carreras pagadas de dos formas`
-                  }
+                  detalle={detalleMixtas}
                 />
               )}
               {facturadas > 0 && (

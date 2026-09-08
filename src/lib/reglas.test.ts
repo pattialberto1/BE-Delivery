@@ -549,14 +549,26 @@ describe('comandas facturadas aparte', () => {
     const base = { pagado_divisa_usd: 0, pagado_bs: 0, facturada_aparte: true }
     expect(etiquetaDeCobro({ ...base, moneda_facturada: 'BS' })).toBe('Facturada aparte · bolívares')
     expect(etiquetaDeCobro({ ...base, moneda_facturada: 'USD' })).toBe('Facturada aparte · dólares')
-    // Sin montos: en la liquidación lo que importa es la moneda. El desglose
-    // completo va en el cierre, que es donde se cuadra la caja.
-    expect(etiquetaDeCobro({ ...base, moneda_facturada: 'MIXTO' })).toBe('Facturada aparte · parte y parte')
+    // La parte y parte se lleva sus montos: es lo que dice cuánto sacar de cada
+    // caja para pagar esa carrera.
+    expect(
+      etiquetaDeCobro({ ...base, moneda_facturada: 'MIXTO', facturada_bs: 45862, facturada_divisa_usd: 29 }),
+    ).toBe('Facturada aparte · parte y parte: Bs 45.862,00 + $29,00')
+    expect(etiquetaDeCobro({ ...base, moneda_facturada: 'MIXTO' })).toBe(
+      'Facturada aparte · parte y parte (sin desglosar)',
+    )
     expect(etiquetaDeCobro({ ...base, moneda_facturada: null })).toBe('Facturada aparte · sin especificar')
   })
 
-  it('a las demás las nombra por su moneda a secas', () => {
+  it('a las de una sola moneda las nombra a secas', () => {
     expect(etiquetaDeCobro({ pagado_divisa_usd: 0, pagado_bs: 480 })).toBe('Bolívares')
+    expect(etiquetaDeCobro({ pagado_divisa_usd: 12, pagado_bs: 0 })).toBe('Dólares')
+  })
+
+  it('una carrera cobrada mixto dice cuánto entró de cada moneda', () => {
+    // «Mixto» a secas no dice de qué caja salió cada parte, que es lo que se
+    // necesita al pagarle la carrera al repartidor.
+    expect(etiquetaDeCobro({ pagado_divisa_usd: 10, pagado_bs: 15287 })).toBe('Mixto: Bs 15.287,00 + $10,00')
   })
 
   it('sigue exigiendo factura, cliente y zona', () => {
