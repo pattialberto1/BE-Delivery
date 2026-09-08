@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useSesion } from '../contexto/Sesion'
 import { useOrdenesRango } from '../hooks/useOrdenes'
-import { formatearBS, formatearFecha, formatearUSD, monedaDeCobro } from '../lib/reglas'
+import { etiquetaDeCobro, formatearBS, formatearFecha, formatearUSD, monedaDeCobro } from '../lib/reglas'
 import {
   carrerasPorMoneda,
   consolidarLiquidacion,
@@ -10,7 +10,7 @@ import {
   liquidacionDesdeOrdenes,
   pagoPorMoneda,
 } from '../lib/exportar'
-import { ETIQUETA_MONEDA_FACTURADA, type MonedaFacturada } from '../lib/tipos'
+import { ETIQUETA_MONEDA_FACTURADA, type MonedaFacturada, type OrdenDetalle } from '../lib/tipos'
 import { Alerta, Boton, Cargando, ContenedorTabla, Dato, Entrada, Tarjeta, Vacio } from '../componentes/UI'
 
 /**
@@ -29,6 +29,55 @@ function CeldaMoneda({ carreras, pagar }: { carreras: number; pagar: number }) {
         {carreras} carrera{carreras === 1 ? '' : 's'}
       </div>
     </td>
+  )
+}
+
+/**
+ * Las carreras de un repartidor, desplegadas debajo de su fila.
+ *
+ * Es lo que hace falta cuando alguien reclama que le falta una carrera: en vez
+ * de bajar el Excel, se abre el nombre y ahí están, una por una, con la
+ * referencia con la que se coteja.
+ */
+function DetalleCarreras({ carreras, mostrarFecha }: { carreras: OrdenDetalle[]; mostrarFecha: boolean }) {
+  if (carreras.length === 0) {
+    return <p className="py-3 text-sm text-slate-500">No tiene carreras en este rango.</p>
+  }
+
+  return (
+    <table className="w-full min-w-[38rem] text-sm">
+      <thead>
+        <tr className="border-b border-slate-300 text-left text-xs uppercase tracking-wide text-slate-500">
+          {mostrarFecha && <th className="py-1.5 pr-3">Fecha</th>}
+          <th className="py-1.5 pr-3">Factura</th>
+          <th className="py-1.5 pr-3">Cliente</th>
+          <th className="py-1.5 pr-3">Zona</th>
+          <th className="py-1.5 pr-3">Cobrado en</th>
+          <th className="py-1.5 text-right">A pagar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {carreras.map((o) => (
+          <tr key={o.id} className="border-b border-slate-200/70 last:border-0">
+            {mostrarFecha && (
+              <td className="py-1.5 pr-3 whitespace-nowrap text-slate-600">{formatearFecha(o.fecha_operativa)}</td>
+            )}
+            <td className="py-1.5 pr-3 font-semibold tabular-nums">
+              {o.numero_factura}
+              {/* La referencia debajo: es con lo que se coteja contra el banco
+                  cuando el reclamo es sobre una carrera puntual. */}
+              <div className="text-xs font-normal text-slate-500">{o.referencias ?? '—'}</div>
+            </td>
+            <td className="py-1.5 pr-3">{o.cliente_nombre}</td>
+            <td className="py-1.5 pr-3 text-slate-600">{o.zona}</td>
+            <td className="py-1.5 pr-3 text-slate-600">{etiquetaDeCobro(o)}</td>
+            <td className="py-1.5 text-right font-semibold tabular-nums">
+              {formatearUSD(o.pago_repartidor_usd)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
@@ -113,7 +162,43 @@ export function Liquidacion() {
     return partes.join(' · ')
   }, [entregas])
 
+  // Qué repartidores tienen el detalle abierto. Se admiten varios a la vez:
+  // al pagar se comparan dos, y cerrar uno para abrir otro sería pelear con la
+  // pantalla.
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
+
+  function alternar(id: string) {
+    setAbiertos((previos) => {
+      const siguiente = new Set(previos)
+      if (siguiente.has(id)) siguiente.delete(id)
+      else siguiente.add(id)
+      return siguiente
+    })
+  }
+
+  /** Las carreras de cada repartidor, en el orden en que las hizo. */
+  const carrerasPorRepartidor = useMemo(() => {
+    const mapa = new Map<string, OrdenDetalle[]>()
+    for (const orden of entregas) {
+      const suyas = mapa.get(orden.repartidor_id!) ?? []
+      suyas.push(orden)
+      mapa.set(orden.repartidor_id!, suyas)
+    }
+    for (const suyas of mapa.values()) {
+      suyas.sort(
+        (a, b) =>
+          a.fecha_operativa.localeCompare(b.fecha_operativa) ||
+          a.numero_factura.localeCompare(b.numero_factura, 'es', { numeric: true }),
+      )
+    }
+    return mapa
+  }, [entregas])
+
   const unSoloDia = desde === hasta
+
+  // Cuántas columnas tiene la tabla, para que la fila del detalle las abarque
+  // todas sin importar cuáles estén visibles.
+  const columnas = 5 + (mixtas > 0 ? 1 : 0) + (facturadas > 0 ? 1 : 0) + (conMargen ? 2 : 0)
 
   return (
     <div className="space-y-4">
@@ -216,9 +301,28 @@ export function Liquidacion() {
                   {consolidado.map((fila) => {
                     const suyo = desglosePorRepartidor.get(fila.repartidor_id)
                     const suyasMixtas = (suyo?.carreras.MIXTO ?? 0) + (suyo?.carreras.SIN_PAGO ?? 0)
+                    const abierto = abiertos.has(fila.repartidor_id)
                     return (
-                    <tr key={fila.repartidor_id} className="border-b border-slate-100">
-                      <td className="py-2.5 pr-3 font-semibold">{fila.repartidor}</td>
+                    <Fragment key={fila.repartidor_id}>
+                    <tr className={`border-b border-slate-100 ${abierto ? 'bg-slate-50' : ''}`}>
+                      <td className="py-2.5 pr-3">
+                        {/* El nombre abre sus carreras: es la pregunta que sigue
+                            apenas se mira cuánto se le debe. */}
+                        <button
+                          type="button"
+                          onClick={() => alternar(fila.repartidor_id)}
+                          aria-expanded={abierto}
+                          className="flex min-h-9 items-center gap-2 text-left font-semibold text-slate-800 hover:text-marca-700"
+                        >
+                          <span
+                            aria-hidden
+                            className={`text-xs text-slate-400 transition-transform ${abierto ? 'rotate-90' : ''}`}
+                          >
+                            ▶
+                          </span>
+                          <span className="underline decoration-dotted underline-offset-4">{fila.repartidor}</span>
+                        </button>
+                      </td>
                       <td className="py-2.5 pr-3 text-right tabular-nums">{fila.carreras}</td>
                       <CeldaMoneda carreras={suyo?.carreras.USD ?? 0} pagar={suyo?.pagar.USD ?? 0} />
                       <CeldaMoneda carreras={suyo?.carreras.BS ?? 0} pagar={suyo?.pagar.BS ?? 0} />
@@ -248,6 +352,17 @@ export function Liquidacion() {
                         </>
                       )}
                     </tr>
+                    {abierto && (
+                      <tr className="border-b border-slate-200 bg-slate-50">
+                        <td colSpan={columnas} className="px-3 pb-4 pt-1">
+                          <DetalleCarreras
+                            carreras={carrerasPorRepartidor.get(fila.repartidor_id) ?? []}
+                            mostrarFecha={!unSoloDia}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                     )
                   })}
                 </tbody>

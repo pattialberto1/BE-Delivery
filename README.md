@@ -69,7 +69,10 @@ zona, el cuadre del día, la verificación y la liquidación de repartidores.
   parte** se piden los dos montos: cuánto en bolívares y cuánto en dólares, que
   es lo que hace falta para saber cuánto sacar de cada caja.
 - **Liquidación de repartidores**: cuántas carreras hizo cada uno y cuánto se le
-  debe, por día o por rango de fechas. Lo que se le debe sale siempre en
+  debe, por día o por rango de fechas. **Tocando el nombre se despliegan sus
+  carreras** —factura, referencia, cliente, zona, con qué se cobró y cuánto se
+  le paga por cada una—, que es lo que hace falta cuando alguien reclama que le
+  falta una. Lo que se le debe sale siempre en
   dólares —así está tarifada cada zona— pero separado según con qué plata entró
   la carrera, para saber cuánto de ese total conviene pagarlo con los dólares de
   la caja y cuánto con lo que entró en bolívares.
