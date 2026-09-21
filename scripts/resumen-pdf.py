@@ -1,5 +1,5 @@
 """
-Arma el resumen en PDF de qué hace el sistema de delivery.
+Arma el resumen en PDF: qué se hizo y cómo funciona el sistema de delivery.
 
 Es el documento que se le pasa a quien no va a leer el README: dueño, contador,
 alguien nuevo en el local. Se regenera con:
@@ -149,7 +149,7 @@ A = historia.append
 
 A(Paragraph('Sistema de Delivery', E['titulo']))
 A(Paragraph(
-    'Broaster Express La Candelaria &nbsp;·&nbsp; qué hace y para qué sirve',
+    'Broaster Express La Candelaria &nbsp;·&nbsp; qué se hizo y cómo funciona',
     E['subtitulo'],
 ))
 
@@ -172,6 +172,72 @@ A(recuadro(
     'confirma el pago. De ahí sale todo lo demás solo: la tarifa según la zona, el cuadre del '
     'día, la verificación y la liquidación de repartidores.'
 ))
+
+# --- Qué se construyó --------------------------------------------------------
+
+A(seccion('Qué se construyó'))
+A(parrafo(
+    'Una aplicación web propia, hecha a la medida del local, que corre en la tablet de la cajera y '
+    'en la computadora de la administradora. Reemplaza la hoja de papel, el Excel intermedio y el '
+    'cuadro manual de repartidores.'
+))
+A(tabla([
+    ['Pieza', 'Qué resolvió'],
+    ['<b>Carga de la comanda</b>',
+     'Un solo formulario con todo: factura, cliente, zona, repartidor y los pagos con su captura. '
+     'La tarifa del delivery se saca sola del cuadro real de <b>104 zonas</b>, que se cargó tal '
+     'como estaba en papel.'],
+    ['<b>Validaciones automáticas</b>',
+     'Las cinco revisiones que hacía la administradora comanda por comanda, ahora en el momento de '
+     'teclear: referencia repetida, factura repetida, saltos en el correlativo, descuadres y '
+     'carreras sin repartidor.'],
+    ['<b>Asignación en dos toques</b>',
+     'Pensada para el momento real: sube un repartidor, se toca su nombre y después las comandas '
+     'que se lleva. Antes había que anotarlo a mano en la hoja.'],
+    ['<b>Verificación con la captura al lado</b>',
+     'La administradora dejó de cotejar contra papel impreso: ve la imagen del pago junto a lo '
+     'tecleado y aprueba con un botón.'],
+    ['<b>Cierre de jornada</b>',
+     'Los totales del día salen solos y, al cerrar, la jornada queda congelada: nadie puede '
+     'modificar esas órdenes sin reabrirla.'],
+    ['<b>Liquidación automática</b>',
+     'El tercer cuadro, el que se armaba a mano, sale solo — por día o por rango de fechas — y '
+     'partido según con qué plata entró cada carrera.'],
+    ['<b>Dos reportes en Excel</b>',
+     'Cierre y liquidación, con formatos distintos porque responden preguntas distintas.'],
+    ['<b>Los casos raros del local</b>',
+     'Pick up, pagos partidos, comandas facturadas por la otra caja, comandas olvidadas de ayer, '
+     'correcciones. Se fueron agregando según aparecieron en el día a día.'],
+], [4.6 * cm, 11.8 * cm]))
+
+# --- Cómo funciona un día ----------------------------------------------------
+
+A(seccion('Cómo funciona un día'))
+A(tabla([
+    ['Momento', 'Qué pasa'],
+    ['<b>1. Se abre la jornada</b>',
+     'La primera vez que alguien entra, la app pide la <b>tasa del día</b>. Sin ella no se puede '
+     'cuadrar nada, porque el delivery se cobra en dólares y el pago móvil entra en bolívares. '
+     'Esa tasa queda pegada a cada orden que se cargue ese día.'],
+    ['<b>2. Entra un pedido</b>',
+     'La cajera confirma el pago por WhatsApp y lo carga de una vez: arriba le dice por cuál '
+     'comanda del día va. Teclea la factura, el cliente, la zona —la tarifa aparece sola— y el '
+     'pago con su captura. Si algo no cuadra, la app avisa <b>ahí mismo</b>, con el cliente '
+     'todavía en línea.'],
+    ['<b>3. Sube un repartidor</b>',
+     'Se va a Asignar, se toca su nombre y después las comandas que se lleva. Cada toque asigna al '
+     'instante, y si se equivoca hay Deshacer.'],
+    ['<b>4. La administradora verifica</b>',
+     'Ve la captura del pago al lado de lo que se tecleó y aprueba. Lo que no cuadra queda '
+     'marcado sin necesidad de buscarlo.'],
+    ['<b>5. Se cierra el día</b>',
+     'La pantalla de Cierre da los totales, la lista de pagos con sus referencias y lo que quedó '
+     'por revisar. No deja cerrar si falta verificar algo o si hay carreras sin repartidor. Al '
+     'cerrar, la jornada se congela.'],
+    ['<b>6. Se le paga a los repartidores</b>',
+     'La liquidación dice cuánto le toca a cada uno y con qué plata pagarle. Tocando el nombre se '
+     'abren sus carreras una por una, que es lo que se necesita cuando alguien reclama.'],
+], [4.6 * cm, 11.8 * cm]))
 
 # --- Las pantallas -----------------------------------------------------------
 
@@ -306,9 +372,23 @@ A(tabla([
      'tarifas, los reportes viejos no se alteran.'],
 ], [3.6 * cm, 12.8 * cm], cabecera=False, junto=True))
 
+# --- Lo que queda pendiente --------------------------------------------------
+
+A(seccion('Lo que quedó pendiente'))
+A(tabla([
+    ['<b>El location de WhatsApp</b>',
+     'Muchos clientes mandan la ubicación en vez de escribir la dirección. Está parado a '
+     'propósito: la idea es pegar el enlace y que la app <b>sugiera</b> la zona para que la cajera '
+     'la confirme —nunca cobrar sola—, y guardar las coordenadas para que el repartidor reciba el '
+     'punto exacto. Hoy la zona se elige a mano, que funciona bien.'],
+    ['<b>Leer la captura (OCR)</b>',
+     'Que la app saque referencia, monto y banco de la imagen del pago en vez de teclearlos. '
+     'Quedó como paso siguiente desde el principio.'],
+], [4.6 * cm, 11.8 * cm], cabecera=False, junto=True))
+
 A(Spacer(1, 14))
 A(Paragraph(
-    'Documento generado el 5 de septiembre de 2026.',
+    'Documento generado el 21 de septiembre de 2026.',
     E['pie'],
 ))
 
